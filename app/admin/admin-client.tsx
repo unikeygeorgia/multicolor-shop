@@ -246,25 +246,17 @@ export function AdminClient() {
    Access gate (login / denied)
    ============================================================ */
 function AdminGate({ status }: { status: "checking" | "anon" | "denied" }) {
-  const { signInPassword, signUpPassword, signOut } = useAuth();
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const { signInPassword, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true); setErr(null); setOk(null);
-    if (mode === "in") {
-      const { error } = await signInPassword(email.trim(), password);
-      if (error) setErr(error);
-    } else {
-      const { error, needsConfirm } = await signUpPassword(email.trim(), password);
-      if (error) setErr(error);
-      else if (needsConfirm) setOk("ანგარიში შეიქმნა — დაადასტურეთ ელფოსტა, შემდეგ შედით.");
-    }
+    setBusy(true); setErr(null);
+    const { error } = await signInPassword(email.trim(), password);
+    if (error) setErr(error);
     setBusy(false);
   };
 
@@ -290,12 +282,7 @@ function AdminGate({ status }: { status: "checking" | "anon" | "denied" }) {
           ) : (
             <>
               <p className="lead">შედით ადმინ ანგარიშით.</p>
-              <div className="auth-tabs">
-                <button className={mode === "in" ? "on" : ""} onClick={() => { setMode("in"); setErr(null); }}>შესვლა</button>
-                <button className={mode === "up" ? "on" : ""} onClick={() => { setMode("up"); setErr(null); }}>ანგარიშის შექმნა</button>
-              </div>
               {err && <div className="auth-err" style={{ marginBottom: 14 }}>{err}</div>}
-              {ok && <div className="auth-ok" style={{ marginBottom: 14 }}>{ok}</div>}
               <form className="auth-form" onSubmit={submit}>
                 <div className="field">
                   <label htmlFor="ag-email">ელფოსტა</label>
@@ -303,10 +290,10 @@ function AdminGate({ status }: { status: "checking" | "anon" | "denied" }) {
                 </div>
                 <div className="field">
                   <label htmlFor="ag-pass">პაროლი</label>
-                  <input id="ag-pass" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <input id="ag-pass" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
                 <button className="btn lg" type="submit" disabled={busy}>
-                  {busy ? "..." : mode === "in" ? "შესვლა" : "შექმნა"}
+                  {busy ? "..." : "შესვლა"}
                 </button>
               </form>
             </>
