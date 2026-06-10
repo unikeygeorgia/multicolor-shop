@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 
-import { catById } from "@/lib/data";
 import { ph } from "@/lib/utils";
+import { useStore } from "@/components/store-provider";
 import { ArrowRightIcon } from "@/components/icons";
 
 const PICKS = [
@@ -16,6 +18,7 @@ const PICKS = [
 ];
 
 export function CategoryTiles() {
+  const { catById } = useStore();
   return (
     <div className="cat-tiles" id="cat-tiles">
       {PICKS.map((id) => {

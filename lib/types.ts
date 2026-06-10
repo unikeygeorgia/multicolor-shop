@@ -101,7 +101,7 @@ export interface Bundle {
 export interface OrderItem {
   pid: string;
   size: string;
-  color?: string;
+  color?: string | null;
   qty: number;
 }
 
@@ -116,8 +116,8 @@ export interface OrderCustomer {
 
 export interface Order {
   id: string;
-  type: "order" | "quote";
-  status: "new" | "processing" | "done";
+  type: "order" | "quote" | "inquiry";
+  status: "new" | "processing" | "done" | "cancelled";
   date: string;
   customer: OrderCustomer;
   items: OrderItem[];

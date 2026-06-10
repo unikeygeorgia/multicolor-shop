@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 
-import { MC_DATA } from "@/lib/data";
 import { hasTag } from "@/lib/utils";
+import { useStore } from "@/components/store-provider";
 import { ProductGrid } from "@/components/product-grid";
 import { Hero } from "@/components/home/hero";
 import { TrustBand } from "@/components/home/trust-band";
@@ -10,8 +12,9 @@ import { CategoryTiles } from "@/components/home/category-tiles";
 import { ProBand } from "@/components/home/pro-band";
 
 export default function HomePage() {
-  const deals = MC_DATA.products.filter((p) => p.salePct).slice(0, 4);
-  const newArrivals = MC_DATA.products.filter((p) => hasTag(p, "new")).slice(0, 4);
+  const { db } = useStore();
+  const deals = db.products.filter((p) => p.salePct).slice(0, 4);
+  const newArrivals = db.products.filter((p) => hasTag(p, "new")).slice(0, 4);
 
   return (
     <main className="wrap" data-screen-label="მთავარი გვერდი">

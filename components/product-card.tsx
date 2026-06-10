@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 
-import { brandById } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import { fmt, hasTag, inStock, minPrice, prodImg, salePrice } from "@/lib/utils";
-import { useCart } from "@/components/cart-provider";
+import { useStore } from "@/components/store-provider";
 import { PlusIcon } from "@/components/icons";
 
 export function ProductCard({ product: p }: { product: Product }) {
-  const { quickAdd } = useCart();
+  const { brandById, quickAdd } = useStore();
   const b = brandById(p.brand);
   const base = minPrice(p);
   const onSale = !!p.salePct;
@@ -22,7 +21,7 @@ export function ProductCard({ product: p }: { product: Product }) {
       <div className="ph">
         <Link href={`/product?id=${p.id}`} aria-label={p.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={prodImg(p)} alt={`${p.name} — პროდუქტის ფოტო`} loading="lazy" />
+          <img src={prodImg(p, b)} alt={`${p.name} — პროდუქტის ფოტო`} loading="lazy" />
         </Link>
         <div className="badges">
           {hasTag(p, "new") && <span className="badge new">ახალი</span>}

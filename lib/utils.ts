@@ -1,8 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-import { brandById } from "./data";
-import type { Product } from "./types";
+import type { Brand, Product } from "./types";
 
 /** shadcn-style class combiner. */
 export function cn(...inputs: ClassValue[]) {
@@ -45,7 +44,6 @@ export function ph(label: string, tint?: string | null, w = 600, h = 600): strin
   return "data:image/svg+xml," + encodeURIComponent(svg);
 }
 
-export function prodImg(p: Product, w?: number, h?: number): string {
-  const b = brandById(p.brand);
-  return ph("ფოტო · " + (b ? b.name : ""), b ? b.tint : null, w, h);
+export function prodImg(p: Product, brand?: Brand, w?: number, h?: number): string {
+  return ph("ფოტო · " + (brand ? brand.name : ""), brand ? brand.tint : null, w, h);
 }

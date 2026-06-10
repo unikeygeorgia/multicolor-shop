@@ -1,11 +1,14 @@
+"use client";
+
 import Link from "next/link";
 
-import { MC_DATA } from "@/lib/data";
+import { useStore } from "@/components/store-provider";
 
 export function BrandStrip() {
+  const { db } = useStore();
   return (
     <div className="brand-strip" id="brand-strip">
-      {MC_DATA.brands.map((b) => (
+      {db.brands.map((b) => (
         <Link key={b.id} className="brand-tile" href={`/brand?b=${b.id}`}>
           <span className="brand-mark" style={{ background: b.tint }}>
             {b.name[0]}

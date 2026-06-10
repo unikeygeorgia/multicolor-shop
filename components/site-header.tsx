@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { MC_DATA } from "@/lib/data";
-import { useCart } from "@/components/cart-provider";
+import { useStore } from "@/components/store-provider";
+import type { MulticolorData } from "@/lib/types";
 import {
   BurgerIcon,
   CartIcon,
@@ -13,11 +13,11 @@ import {
   SearchIcon,
 } from "@/components/icons";
 
-function MegaColumns() {
+function MegaColumns({ db }: { db: MulticolorData }) {
   return (
     <>
-      {MC_DATA.catGroups.map((g) => {
-        const cats = MC_DATA.categories
+      {db.catGroups.map((g) => {
+        const cats = db.categories
           .filter((c) => c.group === g.id)
           .sort((a, b) => a.order - b.order);
         return (
@@ -39,11 +39,11 @@ function MegaColumns() {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { count } = useCart();
+  const { db, count } = useStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isActive = (path: string) => pathname === path;
-  const sortedCats = [...MC_DATA.categories].sort((a, b) => a.order - b.order);
+  const sortedCats = [...db.categories].sort((a, b) => a.order - b.order);
 
   return (
     <header className="site-header">
@@ -69,11 +69,11 @@ export function SiteHeader() {
               <ChevronDownIcon />
             </Link>
             <div className="mega">
-              <MegaColumns />
+              <MegaColumns db={db} />
               <div className="mega-brands">
                 <h5>ბრენდები</h5>
                 <ul>
-                  {MC_DATA.brands.map((b) => (
+                  {db.brands.map((b) => (
                     <li key={b.id}>
                       <Link href={`/brand?b=${b.id}`}>{b.name}</Link>
                     </li>
@@ -146,7 +146,7 @@ export function SiteHeader() {
               </Link>
             ))}
             <h5>ბრენდები</h5>
-            {MC_DATA.brands.map((b) => (
+            {db.brands.map((b) => (
               <Link
                 key={b.id}
                 className="sub"

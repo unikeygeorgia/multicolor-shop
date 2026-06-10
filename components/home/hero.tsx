@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { MC_DATA } from "@/lib/data";
 import { ph } from "@/lib/utils";
+import { useStore } from "@/components/store-provider";
 
 const VISUALS: Record<string, string> = {
   paint: "ჰერო ფოტო · ინტერიერი/საღებავი",
@@ -13,7 +13,8 @@ const VISUALS: Record<string, string> = {
 };
 
 export function Hero() {
-  const slides = MC_DATA.hero;
+  const { db } = useStore();
+  const slides = db.hero;
   const [cur, setCur] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
