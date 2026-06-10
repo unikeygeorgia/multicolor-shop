@@ -51,7 +51,32 @@ function uid(prefix: string) {
   return prefix + "-" + Math.random().toString(36).slice(2, 7);
 }
 
-type View = "dash" | "products" | "brands" | "cats" | "promos" | "orders" | "settings";
+/* ---------- icons ---------- */
+const si = { fill: "none" as const, stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+const IDash = () => (<svg viewBox="0 0 24 24" {...si}><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>);
+const IBox = () => (<svg viewBox="0 0 24 24" {...si}><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /></svg>);
+const IBag = () => (<svg viewBox="0 0 24 24" {...si}><path d="M6 7h12l1 13H5L6 7z" /><path d="M9 7a3 3 0 0 1 6 0" /></svg>);
+const IUsers = () => (<svg viewBox="0 0 24 24" {...si}><circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.5a3 3 0 0 1 0 5M19 20a6 6 0 0 0-3-5" /></svg>);
+const ICal = () => (<svg viewBox="0 0 24 24" {...si}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v4M16 3v4" /></svg>);
+const ILayers = () => (<svg viewBox="0 0 24 24" {...si}><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></svg>);
+const ITagI = () => (<svg viewBox="0 0 24 24" {...si}><path d="M20 12l-8 8-9-9V3h8l9 9z" /><circle cx="7.5" cy="7.5" r="1.3" /></svg>);
+const IGear = () => (<svg viewBox="0 0 24 24" {...si}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M19.1 4.9l-2.1 2.1M7 16.9l-2.1 2.1" /></svg>);
+const IStore = () => (<svg viewBox="0 0 24 24" {...si}><path d="M4 9h16l-1-4H5L4 9z" /><path d="M5 9v11h14V9" /></svg>);
+const IRefresh = () => (<svg viewBox="0 0 24 24" {...si}><path d="M20 11a8 8 0 1 0-2 5" /><path d="M20 4v6h-6" /></svg>);
+const IOut = () => (<svg viewBox="0 0 24 24" {...si}><path d="M15 12H4M9 7l-5 5 5 5" /><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /></svg>);
+const ISearch = () => (<svg width="15" height="15" viewBox="0 0 24 24" {...si}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>);
+const IGridV = () => (<svg width="15" height="15" viewBox="0 0 24 24" {...si}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>);
+const IListV = () => (<svg width="15" height="15" viewBox="0 0 24 24" {...si}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>);
+const IDownload = () => (<svg width="15" height="15" viewBox="0 0 24 24" {...si}><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>);
+const IBell = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...si}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>);
+const IMail = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...si}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>);
+
+const VIEW_TITLES: Record<string, string> = {
+  dash: "დაფა", products: "პროდუქტები", orders: "შეკვეთები", customers: "მომხმარებლები",
+  calendar: "გაყიდვების კალენდარი", brands: "ბრენდები", cats: "კატეგორიები", promos: "აქციები", settings: "პარამეტრები",
+};
+
+type View = "dash" | "products" | "brands" | "cats" | "promos" | "orders" | "settings" | "customers" | "calendar";
 type Editor =
   | { kind: "order"; id: string }
   | { kind: "product"; id: string | null }
@@ -69,6 +94,7 @@ export function AdminClient() {
   } = store;
   const [view, setView] = useState<View>("dash");
   const [editor, setEditor] = useState<Editor>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     document.body.classList.add("admin");
@@ -109,14 +135,40 @@ export function AdminClient() {
 
   const newCount = orders.filter((o) => o.status === "new").length;
 
-  const navItems: { v: View; label: string; cnt?: string | number }[] = [
-    { v: "dash", label: "დაფა" },
-    { v: "products", label: "პროდუქტები", cnt: db.products.length },
-    { v: "brands", label: "ბრენდები", cnt: db.brands.length },
-    { v: "cats", label: "კატეგორიები და ფილტრები" },
-    { v: "promos", label: "აქციები" },
-    { v: "orders", label: "შეკვეთები", cnt: newCount || "" },
-    { v: "settings", label: "პარამეტრები" },
+  // sold units + earning per product, from orders
+  const soldMap = new Map<string, number>();
+  const earnMap = new Map<string, number>();
+  orders.forEach((o) =>
+    o.items.forEach((i) => {
+      const p = prodById(i.pid);
+      if (!p) return;
+      const sz = p.sizes.find((s) => s.l === i.size) || p.sizes[0];
+      soldMap.set(i.pid, (soldMap.get(i.pid) || 0) + i.qty);
+      earnMap.set(i.pid, (earnMap.get(i.pid) || 0) + salePrice(p, sz?.p ?? 0) * i.qty);
+    })
+  );
+
+  const initials = (user?.email || "ა").slice(0, 1);
+
+  const sections: { label: string; items: { v: View; label: string; icon: React.ReactNode; cnt?: string | number }[] }[] = [
+    {
+      label: "მთავარი",
+      items: [
+        { v: "dash", label: "დაფა", icon: <IDash /> },
+        { v: "products", label: "პროდუქტები", icon: <IBox />, cnt: db.products.length },
+        { v: "orders", label: "შეკვეთები", icon: <IBag />, cnt: newCount || "" },
+        { v: "customers", label: "მომხმარებლები", icon: <IUsers /> },
+        { v: "calendar", label: "კალენდარი", icon: <ICal /> },
+      ],
+    },
+    {
+      label: "კატალოგი",
+      items: [
+        { v: "brands", label: "ბრენდები", icon: <ITagI />, cnt: db.brands.length },
+        { v: "cats", label: "კატეგორიები", icon: <ILayers /> },
+        { v: "promos", label: "აქციები", icon: <ITagI /> },
+      ],
+    },
   ];
 
   return (
@@ -125,75 +177,100 @@ export function AdminClient() {
         <aside className="adm-side">
           <Link className="logo" href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-light.svg" alt="მულტიკოლორი" />
-            <span className="sub">ადმინისტრირება</span>
-            <span className="spectrum-tick" />
+            <img src="/logo-dark.svg" alt="მულტიკოლორი" />
+            <span className="sub">ადმინი</span>
           </Link>
+          <div className="adm-search">
+            <ISearch />
+            <input
+              placeholder="ძებნა პროდუქტებში…"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setView("products"); }}
+            />
+            <span className="kbd">⌘K</span>
+          </div>
           <nav className="adm-nav">
-            {navItems.map((n) => (
-              <button
-                key={n.v}
-                className={view === n.v ? "on" : ""}
-                onClick={() => setView(n.v)}
-              >
-                {n.label}
-                {n.cnt !== undefined && n.cnt !== "" && <span className="cnt">{n.cnt}</span>}
-              </button>
+            {sections.map((sec) => (
+              <div key={sec.label}>
+                <div className="nav-label">{sec.label}</div>
+                {sec.items.map((n) => (
+                  <button key={n.v} className={view === n.v ? "on" : ""} onClick={() => setView(n.v)}>
+                    {n.icon}{n.label}
+                    {n.cnt !== undefined && n.cnt !== "" && <span className="cnt">{n.cnt}</span>}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
           <div className="foot">
-            <a href="https://multicolor.ge">← მაღაზიის ნახვა</a>
-            <button onClick={() => reload()}>მონაცემების განახლება</button>
-            <button onClick={async () => { await signOut(); }}>გასვლა</button>
+            <button className={view === "settings" ? "on" : ""} onClick={() => setView("settings")}><IGear /> პარამეტრები</button>
+            <a href="https://multicolor.ge"><IStore /> მაღაზიის ნახვა</a>
+            <button onClick={() => reload()}><IRefresh /> განახლება</button>
+            <button onClick={async () => { await signOut(); }}><IOut /> გასვლა</button>
           </div>
         </aside>
 
         <main className="adm-main">
-          {view === "dash" && (
-            <Dashboard
-              db={db}
-              orders={orders}
-              orderTotal={orderTotal}
-              prodById={prodById}
-              onOrder={(id) => setEditor({ kind: "order", id })}
-              onEditProduct={(id) => setEditor({ kind: "product", id })}
-            />
-          )}
-          {view === "orders" && (
-            <OrdersView
-              orders={orders}
-              orderTotal={orderTotal}
-              setOrderStatus={setOrderStatus}
-              onOrder={(id) => setEditor({ kind: "order", id })}
-            />
-          )}
-          {view === "products" && (
-            <ProductsView
-              db={db}
-              brandById={brandById}
-              catById={catById}
-              onEdit={(id) => setEditor({ kind: "product", id })}
-            />
-          )}
-          {view === "brands" && (
-            <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />
-          )}
-          {view === "cats" && <CatsView db={db} updateCategory={updateCategory} toast={store.toast} />}
-          {view === "promos" && (
-            <PromosView
-              db={db}
-              prodById={prodById}
-              togglePromotion={togglePromotion}
-              onPromo={(id) => setEditor({ kind: "promo", id })}
-              onHero={(i) => setEditor({ kind: "hero", index: i })}
-            />
-          )}
-          {view === "settings" && (
-            <SettingsView
-              settings={store.settings}
-              updateSetting={store.updateSetting}
-            />
-          )}
+          <header className="adm-topbar">
+            <h1>{VIEW_TITLES[view]}</h1>
+            <button className="tb-btn" aria-label="ფოსტა"><IMail /></button>
+            <button className="tb-btn" aria-label="შეტყობინებები"><IBell /></button>
+            <div className="tb-user"><span className="av">{initials}</span>{user?.email}</div>
+          </header>
+
+          <div className="adm-body">
+            {view === "dash" && (
+              <Dashboard
+                db={db}
+                orders={orders}
+                orderTotal={orderTotal}
+                prodById={prodById}
+                onOrder={(id) => setEditor({ kind: "order", id })}
+                onEditProduct={(id) => setEditor({ kind: "product", id })}
+              />
+            )}
+            {view === "orders" && (
+              <OrdersView
+                orders={orders}
+                orderTotal={orderTotal}
+                setOrderStatus={setOrderStatus}
+                onOrder={(id) => setEditor({ kind: "order", id })}
+              />
+            )}
+            {view === "products" && (
+              <ProductsView
+                db={db}
+                brandById={brandById}
+                catById={catById}
+                soldMap={soldMap}
+                earnMap={earnMap}
+                query={query}
+                setQuery={setQuery}
+                onEdit={(id) => setEditor({ kind: "product", id })}
+              />
+            )}
+            {view === "customers" && <CustomersView orders={orders} orderTotal={orderTotal} />}
+            {view === "calendar" && <SalesCalendarView orders={orders} orderTotal={orderTotal} />}
+            {view === "brands" && (
+              <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />
+            )}
+            {view === "cats" && <CatsView db={db} updateCategory={updateCategory} toast={store.toast} />}
+            {view === "promos" && (
+              <PromosView
+                db={db}
+                prodById={prodById}
+                togglePromotion={togglePromotion}
+                onPromo={(id) => setEditor({ kind: "promo", id })}
+                onHero={(i) => setEditor({ kind: "hero", index: i })}
+              />
+            )}
+            {view === "settings" && (
+              <SettingsView
+                settings={store.settings}
+                updateSetting={store.updateSetting}
+              />
+            )}
+          </div>
         </main>
       </div>
 
@@ -627,77 +704,302 @@ function OrderDetail({
    Products
    ============================================================ */
 function ProductsView({
-  db, brandById, catById, onEdit,
+  db, brandById, catById, soldMap, earnMap, query, setQuery, onEdit,
 }: {
   db: MulticolorData;
   brandById: (id: string) => Brand | undefined;
   catById: (id: string) => { name: string } | undefined;
+  soldMap: Map<string, number>;
+  earnMap: Map<string, number>;
+  query: string;
+  setQuery: (v: string) => void;
   onEdit: (id: string | null) => void;
 }) {
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("all");
+  const priceMax = Math.ceil(Math.max(10, ...db.products.map((p) => minPrice(p))) / 10) * 10;
+  const [mode, setMode] = useState<"list" | "grid">("list");
+  const [cats, setCats] = useState<string[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [pmax, setPmax] = useState(priceMax);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+
+  const toggle = (arr: string[], set: (v: string[]) => void, v: string) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
   const list = db.products.filter((p) => {
-    if (cat !== "all" && p.cat !== cat) return false;
-    if (q) {
+    if (cats.length && !cats.includes(p.cat)) return false;
+    if (brands.length && !brands.includes(p.brand)) return false;
+    if (minPrice(p) > pmax) return false;
+    if (query) {
       const hay = (p.name + " " + (brandById(p.brand)?.name || "")).toLowerCase();
-      if (!hay.includes(q.toLowerCase())) return false;
+      if (!hay.includes(query.toLowerCase())) return false;
     }
     return true;
   });
 
+  const catCount = (id: string) => db.products.filter((p) => p.cat === id).length;
+  const brandCount = (id: string) => db.products.filter((p) => p.brand === id).length;
+
+  const allSelected = list.length > 0 && list.every((p) => sel.has(p.id));
+  const toggleAll = () => setSel(allSelected ? new Set() : new Set(list.map((p) => p.id)));
+  const toggleOne = (id: string) => {
+    const n = new Set(sel);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    setSel(n);
+  };
+
+  const exportCsv = () => {
+    const rows = sel.size ? list.filter((p) => sel.has(p.id)) : list;
+    const head = ["id", "სახელი", "ბრენდი", "კატეგორია", "ფასი", "გაყიდული", "შემოსავალი"];
+    const data = rows.map((p) => [
+      p.id, p.name, brandById(p.brand)?.name || "", catById(p.cat)?.name || "",
+      minPrice(p), soldMap.get(p.id) || 0, (earnMap.get(p.id) || 0).toFixed(2),
+    ]);
+    const csv = [head, ...data].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "products.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearAll = () => { setCats([]); setBrands([]); setPmax(priceMax); };
+  const sorted = [...db.categories].sort((a, b) => a.order - b.order);
+
   return (
     <>
-      <div className="adm-head">
-        <h1>პროდუქტები</h1>
-        <button className="btn sm" onClick={() => onEdit(null)}>+ ახალი პროდუქტი</button>
+      <div className="adm-toolbar2">
+        <div className="view-toggle">
+          <button className={mode === "list" ? "on" : ""} onClick={() => setMode("list")}><IListV /> სია</button>
+          <button className={mode === "grid" ? "on" : ""} onClick={() => setMode("grid")}><IGridV /> ბადე</button>
+        </div>
+        <div className="toolbar-right">
+          <button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button>
+          <button className="btn sm" onClick={() => onEdit(null)}>+ ახალი პროდუქტი</button>
+        </div>
       </div>
-      <div className="adm-toolbar">
-        <input type="search" placeholder="ძიება სახელით ან ბრენდით…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={cat} onChange={(e) => setCat(e.target.value)}>
-          <option value="all">ყველა კატეგორია</option>
-          {[...db.categories].sort((a, b) => a.order - b.order).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <span className="spacer" />
-        <span style={{ fontSize: 13, color: "var(--muted)", alignSelf: "center" }}>
-          <b className="num">{list.length}</b> პროდუქტი
-        </span>
-      </div>
-      <div className="acard">
-        <table className="atable">
-          <thead>
-            <tr>
-              <th></th><th>პროდუქტი</th><th className="hide-m">კატეგორია</th>
-              <th>ვარიანტები</th><th style={{ textAlign: "right" }}>ფასი</th>
-              <th className="hide-m">მარაგი</th><th>სტატუსი</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => {
-              const stock = p.sizes.reduce((a, s) => a + s.s, 0);
-              const b = brandById(p.brand);
-              return (
-                <tr className="rowlink" key={p.id} onClick={() => onEdit(p.id)}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <td><img className="thumb" src={prodImg(p, b, 80, 80)} alt="" /></td>
-                  <td><span className="nm">{p.name}</span><br /><span className="dim">{b ? b.name : ""}</span></td>
-                  <td className="hide-m dim">{catById(p.cat)?.name || ""}</td>
-                  <td className="dim">{p.sizes.length} ზომა{p.colors && p.colors.length ? ` · ${p.colors.length} ფერი` : ""}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</td>
-                  <td className="hide-m">{stock <= 10 ? <span className="pill red">{stock} ც</span> : <span className="num dim">{stock} ც</span>}</td>
-                  <td style={{ display: "flex", gap: 4, flexWrap: "wrap", borderBottom: "none" }}>
-                    {p.featured && <span className="pill blue">მთავარზე</span>}
-                    {p.tags.includes("new") && <span className="pill green">ახალი</span>}
-                    {p.salePct ? <span className="pill red">−{p.salePct}%</span> : null}
-                  </td>
+
+      <div className="prod-layout">
+        <aside className="fpanel">
+          <div className="fpanel-head">
+            <b>ფილტრები</b>
+            <button className="clear" onClick={clearAll}>გასუფთავება ✕</button>
+          </div>
+          <div className="fsec">
+            <div className="fsec-h">კატეგორია</div>
+            {sorted.map((c) => (
+              <label className="fopt" key={c.id}>
+                <input type="checkbox" checked={cats.includes(c.id)} onChange={() => toggle(cats, setCats, c.id)} />
+                {c.name}<span className="cnt">{catCount(c.id)}</span>
+              </label>
+            ))}
+          </div>
+          <div className="fsec">
+            <div className="fsec-h">ფასი (₾)</div>
+            <div className="price-vals num"><span>0</span><span>{pmax} ₾</span></div>
+            <input type="range" min={0} max={priceMax} step={5} value={pmax} onChange={(e) => setPmax(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
+          </div>
+          <div className="fsec">
+            <div className="fsec-h">ბრენდი</div>
+            {db.brands.map((b) => (
+              <label className="fopt" key={b.id}>
+                <input type="checkbox" checked={brands.includes(b.id)} onChange={() => toggle(brands, setBrands, b.id)} />
+                {b.name}<span className="cnt">{brandCount(b.id)}</span>
+              </label>
+            ))}
+          </div>
+        </aside>
+
+        <div className="acard2">
+          <div className="acard2-head">
+            <h3>პროდუქტები <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 13 }}>({list.length})</span></h3>
+            <div className="right">
+              <button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button>
+            </div>
+          </div>
+
+          {sel.size > 0 && (
+            <div className="bulkbar">
+              {sel.size} მონიშნული
+              <button className="mini-btn" onClick={exportCsv}>მონიშნულის Export</button>
+              <button className="mini-btn" onClick={() => setSel(new Set())}>გასუფთავება</button>
+            </div>
+          )}
+
+          {mode === "list" ? (
+            <table className="ptable">
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
+                  <th>პროდუქტი</th>
+                  <th>ფასი</th>
+                  <th>გაყიდული</th>
+                  <th>სტატუსი</th>
+                  <th>შემოსავალი</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {list.map((p) => {
+                  const stock = p.sizes.reduce((a, s) => a + s.s, 0);
+                  const b = brandById(p.brand);
+                  return (
+                    <tr className="rowlink" key={p.id} onClick={() => onEdit(p.id)}>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggleOne(p.id)} />
+                      </td>
+                      <td>
+                        <div className="pinfo">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={prodImg(p, b, 80, 80)} alt="" />
+                          <div>
+                            <div className="nm">{p.name}</div>
+                            <div className="br">{b ? b.name : ""}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="num">{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</td>
+                      <td className="num">{soldMap.get(p.id) || 0} ც</td>
+                      <td><span className={`stockpill ${stock > 0 ? "in" : "out"}`}>{stock > 0 ? "მარაგშია" : "ამოწურულია"}</span></td>
+                      <td className="num">{fmt(earnMap.get(p.id) || 0)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="pgrid-adm">
+              {list.map((p) => {
+                const b = brandById(p.brand);
+                return (
+                  <div className="pcard-adm" key={p.id} onClick={() => onEdit(p.id)}>
+                    <div className="ph">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={prodImg(p, b, 300, 300)} alt="" />
+                    </div>
+                    <div className="b">
+                      <div className="nm">{p.name}</div>
+                      <div className="meta">
+                        <span className="price">{fmt(salePrice(p, minPrice(p)))}</span>
+                        <span>{soldMap.get(p.id) || 0} გაყ.</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </>
+  );
+}
+
+/* ============================================================
+   Customers (aggregated from orders)
+   ============================================================ */
+function CustomersView({ orders, orderTotal }: { orders: Order[]; orderTotal: (o: Order) => number }) {
+  const map = new Map<string, { name: string; email: string; phone: string; city: string; count: number; total: number; last: string }>();
+  orders.forEach((o) => {
+    const c = o.customer;
+    const key = (c.email || c.phone || c.name || "—").toLowerCase();
+    const cur = map.get(key) || { name: c.name || "—", email: c.email || "", phone: c.phone || "", city: c.city || "", count: 0, total: 0, last: o.date };
+    cur.count += 1;
+    cur.total += orderTotal(o);
+    if (o.date > cur.last) cur.last = o.date;
+    if (!cur.email && c.email) cur.email = c.email;
+    if (!cur.phone && c.phone) cur.phone = c.phone;
+    map.set(key, cur);
+  });
+  const rows = [...map.values()].sort((a, b) => b.total - a.total);
+
+  return (
+    <div className="acard2">
+      <div className="acard2-head"><h3>მომხმარებლები <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 13 }}>({rows.length})</span></h3></div>
+      {rows.length === 0 ? (
+        <div className="empty" style={{ padding: 40 }}><h3>ჯერ მომხმარებლები არ არის</h3></div>
+      ) : (
+        <table className="ptable">
+          <thead>
+            <tr><th>მომხმარებელი</th><th className="hide-m">ქალაქი</th><th>შეკვეთები</th><th>ჯამი</th><th className="hide-m">ბოლო შეკვეთა</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td>
+                  <div className="pinfo">
+                    <span className="cust-av">{(r.name || r.email || "?").slice(0, 1)}</span>
+                    <div><div className="nm">{r.name}</div><div className="br">{r.email || r.phone}</div></div>
+                  </div>
+                </td>
+                <td className="hide-m">{r.city || "—"}</td>
+                <td className="num">{r.count}</td>
+                <td className="num">{fmt(r.total)}</td>
+                <td className="hide-m" style={{ color: "var(--muted)", fontSize: 12.5 }}>
+                  {new Date(r.last).toLocaleDateString("ka-GE", { day: "numeric", month: "short", year: "numeric" })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Sales Calendar
+   ============================================================ */
+function SalesCalendarView({ orders, orderTotal }: { orders: Order[]; orderTotal: (o: Order) => number }) {
+  const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const first = new Date(cursor.y, cursor.m, 1);
+  const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
+  const startOffset = (first.getDay() + 6) % 7; // Mon-first
+
+  const byDay = new Map<number, { count: number; total: number }>();
+  let monthCount = 0, monthTotal = 0;
+  orders.forEach((o) => {
+    const d = new Date(o.date);
+    if (d.getFullYear() === cursor.y && d.getMonth() === cursor.m) {
+      const day = d.getDate();
+      const cur = byDay.get(day) || { count: 0, total: 0 };
+      cur.count += 1; cur.total += orderTotal(o);
+      byDay.set(day, cur);
+      monthCount += 1; monthTotal += orderTotal(o);
+    }
+  });
+
+  const monthName = first.toLocaleDateString("ka-GE", { month: "long", year: "numeric" });
+  const shift = (delta: number) => setCursor((c) => {
+    const nm = c.m + delta;
+    return { y: c.y + Math.floor(nm / 12), m: ((nm % 12) + 12) % 12 };
+  });
+  const cells: (number | null)[] = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const dows = ["ორ", "სა", "ოთ", "ხუ", "პა", "შა", "კვ"];
+
+  return (
+    <div>
+      <div className="cal-head">
+        <h3>{monthName}</h3>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>{monthCount} შეკვეთა · {fmt(monthTotal)}</span>
+        <div className="cal-nav">
+          <button onClick={() => shift(-1)}>‹</button>
+          <button onClick={() => setCursor(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })} className="mini-btn" style={{ width: "auto", padding: "0 12px" }}>დღეს</button>
+          <button onClick={() => shift(1)}>›</button>
+        </div>
+      </div>
+      <div className="cal-grid">
+        {dows.map((d) => <div className="cal-dow" key={d}>{d}</div>)}
+        {cells.map((day, i) => day === null ? (
+          <div className="cal-cell empty" key={`e${i}`} />
+        ) : (
+          <div className="cal-cell" key={day}>
+            <div className="d">{day}</div>
+            {byDay.get(day) && (
+              <div className="ev">{byDay.get(day)!.count} შეკვ.<span className="t">{fmt(byDay.get(day)!.total)}</span></div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
