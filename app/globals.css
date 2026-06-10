@@ -1777,3 +1777,67 @@ body.admin { background: #f4f3f0; }
 }
 .logo-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .bhero .mark.logo-box { border-color: rgba(255, 255, 255, 0.5); }
+
+/* ============================================================
+   Account — profile sidebar + cards (reference-style)
+   ============================================================ */
+.acct-side { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px 16px; position: sticky; top: 90px; }
+.acct-prof { display: flex; flex-direction: column; align-items: center; text-align: center; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.acct-avatar { width: 76px; height: 76px; border-radius: 50%; background: var(--spectrum); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; text-transform: uppercase; }
+.acct-name { font-size: 16px; font-weight: 800; margin-top: 12px; word-break: break-word; }
+.acct-id { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.acct-nav button, .acct-nav a { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: none; border: none; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--ink-soft); }
+.acct-nav button svg, .acct-nav a svg { color: var(--muted); flex-shrink: 0; }
+.acct-nav button:hover { background: var(--line-soft); }
+.acct-nav button.on { background: var(--accent-soft); color: var(--accent); }
+.acct-nav button.on svg { color: var(--accent); }
+.acct-nav .signout { color: var(--sale); margin-top: 8px; border-top: 1px solid var(--line); border-radius: 0; padding-top: 14px; }
+.acct-nav .signout svg { color: var(--sale); }
+
+.ord-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+.ord-card + .ord-card { margin-top: 12px; }
+.ord-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ord-head .oid { font-size: 15px; font-weight: 800; }
+.statuschip { font-size: 11.5px; font-weight: 700; border-radius: 99px; padding: 4px 11px; display: inline-flex; align-items: center; gap: 6px; }
+.statuschip.new { background: var(--accent-soft); color: var(--accent); }
+.statuschip.processing { background: var(--line-soft); color: var(--ink-soft); }
+.statuschip.done { background: oklch(0.95 0.03 150); color: oklch(0.42 0.12 150); }
+.statuschip.cancelled { background: var(--sale-soft); color: var(--sale); }
+.ord-thumbs { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+.ord-thumbs img { width: 54px; height: 54px; border-radius: 10px; border: 1px solid var(--line); object-fit: cover; background: var(--line-soft); }
+.ord-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.ord-foot .dt { font-size: 12.5px; color: var(--muted); }
+.ord-foot .tot { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Home — clickable promo banners
+   ============================================================ */
+.promo-banners { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.promo-banner {
+  position: relative; border-radius: var(--radius-lg); overflow: hidden; min-height: 168px;
+  display: flex; align-items: center; padding: 28px 30px; color: #fff;
+  background: linear-gradient(120deg, var(--accent), oklch(0.4 0.16 290));
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.promo-banner.alt { background: linear-gradient(120deg, var(--ink), oklch(0.34 0.05 262)); }
+.promo-banner:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.promo-banner .pb-body { position: relative; z-index: 2; max-width: 70%; }
+.promo-banner .pb-kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.promo-banner h3 { font-size: 24px; font-weight: 800; line-height: 1.15; margin-top: 8px; letter-spacing: -0.01em; }
+.promo-banner .pb-cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 99px; padding: 8px 16px; font-size: 13px; font-weight: 700; }
+.promo-banner .pb-deco { position: absolute; right: -10px; bottom: -20px; font-size: 120px; font-weight: 800; color: rgba(255,255,255,.10); line-height: 1; z-index: 1; user-select: none; }
+@media (max-width: 880px) { .promo-banners { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Hero — side arrows
+   ============================================================ */
+.hero-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,.16); color: #fff; backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.hero-arrow:hover { background: rgba(255,255,255,.3); }
+.hero-arrow.prev { left: 16px; }
+.hero-arrow.next { right: 16px; }
+@media (max-width: 880px) { .hero-arrow { display: none; } }

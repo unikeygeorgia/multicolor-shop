@@ -6,16 +6,13 @@ import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
 import { rowToOrder } from "@/lib/mappers";
-import { fmt, salePrice } from "@/lib/utils";
+import { fmt, prodImg, salePrice } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import { useStore } from "@/components/store-provider";
 
 const STATUS: Record<string, string> = {
-  new: "ახალი",
-  processing: "მუშავდება",
-  done: "შესრულდა",
-  cancelled: "გაუქმდა",
+  new: "ახალი", processing: "მუშავდება", done: "შესრულდა", cancelled: "გაუქმდა",
 };
 const TYPE: Record<string, string> = { order: "შეკვეთა", quote: "ბითუმად", inquiry: "კითხვა" };
 
@@ -27,11 +24,19 @@ interface Address {
   is_default: boolean;
 }
 
-type Tab = "orders" | "profile" | "addresses";
+type Tab = "orders" | "profile" | "addresses" | "password";
+
+/* ---- tiny inline icons ---- */
+const ic = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+const IconOrders = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...ic}><path d="M6 7h12l1 13H5L6 7z" /><path d="M9 7a3 3 0 0 1 6 0" /></svg>);
+const IconProfile = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...ic}><circle cx="12" cy="8" r="4" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>);
+const IconPin = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...ic}><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>);
+const IconLock = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...ic}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>);
+const IconOut = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...ic}><path d="M15 12H4M9 7l-5 5 5 5" /><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /></svg>);
 
 export default function AccountPage() {
   const { user, ready, signOut } = useAuth();
-  const { prodById, addToCart, toast, settings, hydrated } = useStore();
+  const { prodById, brandById, addToCart, toast, settings, hydrated } = useStore();
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("orders");
@@ -61,13 +66,14 @@ export default function AccountPage() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    if (ready && user) load();
-  }, [ready, user, load]);
+  useEffect(() => { if (ready && user) load(); }, [ready, user, load]);
 
   if (!hydrated || !settings.commerceEnabled || !ready || !user) {
     return <main className="wrap" style={{ minHeight: "60vh" }} />;
   }
+
+  const display = name || (user.email || "").split("@")[0] || "მომხმარებელი";
+  const initials = display.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2) || "მ";
 
   const orderTotal = (o: Order) =>
     o.items.reduce((a, i) => {
@@ -77,9 +83,7 @@ export default function AccountPage() {
       return a + salePrice(p, sz?.p ?? 0) * i.qty;
     }, 0);
 
-  const reorder = (o: Order) => {
-    o.items.forEach((i) => addToCart(i.pid, i.size, i.color ?? null, i.qty));
-  };
+  const reorder = (o: Order) => o.items.forEach((i) => addToCart(i.pid, i.size, i.color ?? null, i.qty));
 
   const saveProfile = async () => {
     if (!supabase || !user) return;
@@ -87,21 +91,33 @@ export default function AccountPage() {
     toast(<><span className="tick">✓</span> პროფილი განახლდა</>);
   };
 
+  const NAV: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "orders", label: "შეკვეთები", icon: <IconOrders /> },
+    { id: "profile", label: "პროფილი", icon: <IconProfile /> },
+    { id: "addresses", label: "მისამართები", icon: <IconPin /> },
+    { id: "password", label: "პაროლის შეცვლა", icon: <IconLock /> },
+  ];
+
   return (
     <main className="wrap" data-screen-label="ჩემი ანგარიში">
-      <section className="page-hero">
-        <span className="spectrum-tick" />
-        <h1 style={{ marginTop: 14 }}>ჩემი ანგარიში</h1>
-        <p className="lead">{user.email}</p>
-      </section>
-
       <div className="account-layout">
-        <nav className="acct-nav">
-          <button className={tab === "orders" ? "on" : ""} onClick={() => setTab("orders")}>შეკვეთები</button>
-          <button className={tab === "profile" ? "on" : ""} onClick={() => setTab("profile")}>პროფილი</button>
-          <button className={tab === "addresses" ? "on" : ""} onClick={() => setTab("addresses")}>მისამართები</button>
-          <button className="signout" onClick={async () => { await signOut(); router.replace("/"); }}>გასვლა</button>
-        </nav>
+        <aside className="acct-side">
+          <div className="acct-prof">
+            <div className="acct-avatar">{initials}</div>
+            <div className="acct-name">{display}</div>
+            <div className="acct-id">ID — {user.id.slice(0, 8)}</div>
+          </div>
+          <nav className="acct-nav">
+            {NAV.map((n) => (
+              <button key={n.id} className={tab === n.id ? "on" : ""} onClick={() => setTab(n.id)}>
+                {n.icon}{n.label}
+              </button>
+            ))}
+            <button className="signout" onClick={async () => { await signOut(); router.replace("/"); }}>
+              <IconOut />გასვლა
+            </button>
+          </nav>
+        </aside>
 
         <section>
           {tab === "orders" && (
@@ -117,23 +133,32 @@ export default function AccountPage() {
                 </div>
               ) : (
                 orders.map((o) => (
-                  <div className="order-row" key={o.id}>
-                    <div>
-                      <span className="oid">{o.id}</span>{" "}
-                      <span className="badge soft">{TYPE[o.type] || o.type}</span>
-                      <div className="meta">
+                  <div className="ord-card" key={o.id}>
+                    <div className="ord-head">
+                      <span className="oid">{o.id} <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>· {TYPE[o.type] || o.type}</span></span>
+                      <span className={`statuschip ${o.status}`}>{STATUS[o.status] || o.status}</span>
+                    </div>
+                    {o.items.length > 0 && (
+                      <div className="ord-thumbs">
+                        {o.items.map((i, idx) => {
+                          const p = prodById(i.pid);
+                          if (!p) return null;
+                          return (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={idx} src={prodImg(p, brandById(p.brand), 120, 120)} alt={p.name} title={p.name} />
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="ord-foot">
+                      <span className="dt">
                         {new Date(o.date).toLocaleDateString("ka-GE", { day: "numeric", month: "long", year: "numeric" })}
                         {o.items.length ? ` · ${o.items.length} პოზიცია` : ""}
-                      </div>
-                    </div>
-                    <div className="right">
-                      <span className="badge new">{STATUS[o.status] || o.status}</span>
-                      {o.items.length > 0 && (
-                        <>
-                          <span className="num" style={{ fontWeight: 800 }}>{fmt(orderTotal(o))}</span>
-                          <button className="btn-line sm" onClick={() => reorder(o)}>გამეორება</button>
-                        </>
-                      )}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                        {o.items.length > 0 && !settings.pricesHidden && <span className="tot">{fmt(orderTotal(o))}</span>}
+                        {o.items.length > 0 && <button className="btn-line sm" onClick={() => reorder(o)}>გამეორება</button>}
+                      </span>
                     </div>
                   </div>
                 ))
@@ -161,15 +186,48 @@ export default function AccountPage() {
           )}
 
           {tab === "addresses" && (
-            <AddressManager
-              addresses={addresses}
-              userId={user.id}
-              onChange={load}
-            />
+            <AddressManager addresses={addresses} userId={user.id} onChange={load} />
           )}
+
+          {tab === "password" && <PasswordSection onDone={() => toast(<><span className="tick">✓</span> პაროლი შეიცვალა</>)} />}
         </section>
       </div>
     </main>
+  );
+}
+
+function PasswordSection({ onDone }: { onDone: () => void }) {
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setErr(null);
+    if (pw.length < 6) { setErr("პაროლი მინ. 6 სიმბოლო"); return; }
+    if (pw !== pw2) { setErr("პაროლები არ ემთხვევა"); return; }
+    if (!supabase) return;
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr(error.message);
+    else { setPw(""); setPw2(""); onDone(); }
+  };
+
+  return (
+    <div className="acct-card">
+      <h2>პაროლის შეცვლა</h2>
+      {err && <div className="auth-err" style={{ marginBottom: 14 }}>{err}</div>}
+      <div className="field" style={{ marginBottom: 14 }}>
+        <label htmlFor="np">ახალი პაროლი</label>
+        <input id="np" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="მინ. 6 სიმბოლო" />
+      </div>
+      <div className="field" style={{ marginBottom: 18 }}>
+        <label htmlFor="np2">გაიმეორე პაროლი</label>
+        <input id="np2" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+      </div>
+      <button className="btn" onClick={save} disabled={busy}>{busy ? "..." : "შენახვა"}</button>
+    </div>
   );
 }
 
@@ -189,15 +247,10 @@ function AddressManager({
     if (!supabase || !address.trim()) return;
     setBusy(true);
     await supabase.from("addresses").insert({
-      user_id: userId,
-      label: label.trim() || null,
-      city,
-      address: address.trim(),
+      user_id: userId, label: label.trim() || null, city, address: address.trim(),
       is_default: addresses.length === 0,
     });
-    setLabel(""); setAddress("");
-    setBusy(false);
-    onChange();
+    setLabel(""); setAddress(""); setBusy(false); onChange();
   };
   const remove = async (id: string) => {
     if (!supabase) return;
@@ -230,9 +283,7 @@ function AddressManager({
       <div className="field" style={{ marginBottom: 12 }}>
         <label htmlFor="ad-city">ქალაქი</label>
         <select id="ad-city" value={city} onChange={(e) => setCity(e.target.value)}>
-          {["თბილისი", "ბათუმი", "ქუთაისი", "რუსთავი", "გორი", "ზუგდიდი", "სხვა"].map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          {["თბილისი", "ბათუმი", "ქუთაისი", "რუსთავი", "გორი", "ზუგდიდი", "სხვა"].map((c) => <option key={c}>{c}</option>)}
         </select>
       </div>
       <div className="field" style={{ marginBottom: 16 }}>

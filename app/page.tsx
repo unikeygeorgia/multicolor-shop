@@ -6,6 +6,7 @@ import { hasTag } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
 import { ProductGrid } from "@/components/product-grid";
 import { Hero } from "@/components/home/hero";
+import { PromoBanners } from "@/components/home/promo-banners";
 import { TrustBand } from "@/components/home/trust-band";
 import { BrandStrip } from "@/components/home/brand-strip";
 import { CategoryTiles } from "@/components/home/category-tiles";
@@ -19,6 +20,8 @@ export default function HomePage() {
   return (
     <main className="wrap" data-screen-label="მთავარი გვერდი">
       <Hero />
+
+      <PromoBanners />
 
       <TrustBand />
 
