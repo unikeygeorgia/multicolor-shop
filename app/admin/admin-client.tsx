@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { fmt, minPrice, prodImg, salePrice } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useStore } from "@/components/store-provider";
+import { useAuth } from "@/components/auth-provider";
 import type {
   Brand,
   Category,
@@ -70,6 +72,30 @@ export function AdminClient() {
     return () => document.body.classList.remove("admin");
   }, []);
 
+  /* ---------- access gate ---------- */
+  const { user, ready, signOut } = useAuth();
+  const [access, setAccess] = useState<"checking" | "anon" | "denied" | "ok">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!ready) { setAccess("checking"); return; }
+      if (!user) { setAccess("anon"); return; }
+      if (!supabase) { setAccess("denied"); return; }
+      const { data } = await supabase.rpc("is_admin");
+      if (cancelled) return;
+      if (data === true) {
+        setAccess("ok");
+        reload();
+      } else {
+        setAccess("denied");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ready, user, reload]);
+
+  if (access !== "ok") return <AdminGate status={access} />;
+
   const orderTotal = (o: Order) =>
     o.items.reduce((a, i) => {
       const p = prodById(i.pid);
@@ -111,8 +137,9 @@ export function AdminClient() {
             ))}
           </nav>
           <div className="foot">
-            <Link href="/">← მაღაზიის ნახვა</Link>
+            <a href="https://multicolor.ge">← მაღაზიის ნახვა</a>
             <button onClick={() => reload()}>მონაცემების განახლება</button>
+            <button onClick={async () => { await signOut(); }}>გასვლა</button>
           </div>
         </aside>
 
@@ -211,6 +238,81 @@ export function AdminClient() {
           )}
         </Drawer>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Access gate (login / denied)
+   ============================================================ */
+function AdminGate({ status }: { status: "checking" | "anon" | "denied" }) {
+  const { signInPassword, signUpPassword, signOut } = useAuth();
+  const [mode, setMode] = useState<"in" | "up">("in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr(null); setOk(null);
+    if (mode === "in") {
+      const { error } = await signInPassword(email.trim(), password);
+      if (error) setErr(error);
+    } else {
+      const { error, needsConfirm } = await signUpPassword(email.trim(), password);
+      if (error) setErr(error);
+      else if (needsConfirm) setOk("ანგარიში შეიქმნა — დაადასტურეთ ელფოსტა, შემდეგ შედით.");
+    }
+    setBusy(false);
+  };
+
+  if (status === "checking") {
+    return <div className="admin-root" style={{ minHeight: "100vh" }} />;
+  }
+
+  return (
+    <div className="admin-root" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
+      <div className="auth-wrap" style={{ marginTop: 0 }}>
+        <div className="auth-card">
+          <h1>ადმინისტრირება</h1>
+          {status === "denied" ? (
+            <>
+              <p className="lead">ამ ანგარიშს არ აქვს ადმინ წვდომა.</p>
+              <div className="auth-err" style={{ marginBottom: 14 }}>
+                წვდომა შეზღუდულია — დაუკავშირდით ანგარიშის მფლობელს.
+              </div>
+              <button className="btn-line" style={{ width: "100%" }} onClick={() => signOut()}>
+                სხვა ანგარიშით შესვლა
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="lead">შედით ადმინ ანგარიშით.</p>
+              <div className="auth-tabs">
+                <button className={mode === "in" ? "on" : ""} onClick={() => { setMode("in"); setErr(null); }}>შესვლა</button>
+                <button className={mode === "up" ? "on" : ""} onClick={() => { setMode("up"); setErr(null); }}>ანგარიშის შექმნა</button>
+              </div>
+              {err && <div className="auth-err" style={{ marginBottom: 14 }}>{err}</div>}
+              {ok && <div className="auth-ok" style={{ marginBottom: 14 }}>{ok}</div>}
+              <form className="auth-form" onSubmit={submit}>
+                <div className="field">
+                  <label htmlFor="ag-email">ელფოსტა</label>
+                  <input id="ag-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="ag-pass">პაროლი</label>
+                  <input id="ag-pass" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <button className="btn lg" type="submit" disabled={busy}>
+                  {busy ? "..." : mode === "in" ? "შესვლა" : "შექმნა"}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
