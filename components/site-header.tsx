@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useStore } from "@/components/store-provider";
+import { useAuth } from "@/components/auth-provider";
 import type { MulticolorData } from "@/lib/types";
 import {
   BurgerIcon,
   CartIcon,
   ChevronDownIcon,
   SearchIcon,
+  UserIcon,
 } from "@/components/icons";
 
 function MegaColumns({ db }: { db: MulticolorData }) {
@@ -40,6 +42,7 @@ function MegaColumns({ db }: { db: MulticolorData }) {
 export function SiteHeader() {
   const pathname = usePathname();
   const { db, count } = useStore();
+  const { user } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isActive = (path: string) => pathname === path;
@@ -110,6 +113,14 @@ export function SiteHeader() {
           />
         </form>
 
+        <Link
+          className="hdr-cart"
+          href={user ? "/account" : "/login"}
+          aria-label={user ? "ჩემი ანგარიში" : "შესვლა"}
+          title={user ? "ჩემი ანგარიში" : "შესვლა"}
+        >
+          <UserIcon />
+        </Link>
         <Link className="hdr-cart" href="/cart" aria-label="კალათა">
           <CartIcon />
           <span className="cart-count">{count > 0 ? count : ""}</span>

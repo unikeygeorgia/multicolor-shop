@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth-provider";
 import { StoreProvider } from "@/components/store-provider";
 import { SiteChrome } from "@/components/site-chrome";
 
@@ -17,9 +18,11 @@ export default function RootLayout({
   return (
     <html lang="ka">
       <body>
-        <StoreProvider>
-          <SiteChrome>{children}</SiteChrome>
-        </StoreProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <SiteChrome>{children}</SiteChrome>
+          </StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   );

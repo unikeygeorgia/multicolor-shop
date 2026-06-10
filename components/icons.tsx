@@ -34,6 +34,15 @@ export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function UserIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" strokeWidth={1.8} {...base} {...props}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </svg>
+  );
+}
+
 export function CartIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg width="19" height="19" viewBox="0 0 24 24" strokeWidth={1.8} {...base} {...props}>

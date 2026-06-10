@@ -17,7 +17,6 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
   categoryToRow,
   heroToRow,
-  orderToRow,
   productToRow,
   promotionToRow,
   rowToBundle,
@@ -273,11 +272,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const count = useMemo(() => cart.reduce((a, i) => a + i.qty, 0), [cart]);
 
   /* ---------- orders ---------- */
+  // Orders are created server-side via /api/orders (service role). This only
+  // updates local state for any optimistic UI that still calls it.
   const pushOrder = useCallback((o: Order) => {
     setOrders((prev) => [o, ...prev]);
-    if (supabase) supabase.from("orders").insert(orderToRow(o)).then(({ error }) => {
-      if (error) console.error("order insert failed", error);
-    });
   }, []);
 
   const setOrderStatus = useCallback((id: string, status: Order["status"]) => {

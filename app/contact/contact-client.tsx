@@ -6,10 +6,9 @@ import Link from "next/link";
 
 import { ph } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
-import type { Order } from "@/lib/types";
 
 export function ContactClient() {
-  const { prodById, pushOrder } = useStore();
+  const { prodById } = useStore();
   const params = useSearchParams();
 
   const [type, setType] = useState<"general" | "bulk">(
@@ -24,23 +23,27 @@ export function ContactClient() {
   );
   const [sentName, setSentName] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const order: Order = {
-      id: "MC-" + Math.floor(1000 + Math.random() * 9000),
-      type: type === "bulk" ? "quote" : "inquiry",
-      status: "new",
-      date: new Date().toISOString(),
-      customer: {
-        name: name.trim(),
-        phone: phone.trim(),
-        city: "",
-        company: company.trim() || undefined,
-        note: msg.trim(),
-      },
-      items: [],
-    };
-    pushOrder(order);
+    try {
+      await fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: type === "bulk" ? "quote" : "inquiry",
+          customer: {
+            name: name.trim(),
+            phone: phone.trim(),
+            city: "",
+            company: company.trim() || undefined,
+            note: msg.trim(),
+          },
+          items: [],
+        }),
+      });
+    } catch {
+      /* best-effort; still acknowledge */
+    }
     setSentName(name.trim());
   };
 
