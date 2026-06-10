@@ -11,6 +11,8 @@ import {
   BurgerIcon,
   CartIcon,
   ChevronDownIcon,
+  GridIcon,
+  PinIcon,
   SearchIcon,
   UserIcon,
 } from "@/components/icons";
@@ -51,12 +53,10 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <div className="spectrum-bar" aria-hidden="true" />
+
+      {/* ---- row 1 ---- */}
       <div className="wrap hdr-row">
-        <button
-          className="hdr-burger"
-          aria-label="მენიუ"
-          onClick={() => setDrawerOpen(true)}
-        >
+        <button className="hdr-burger" aria-label="მენიუ" onClick={() => setDrawerOpen(true)}>
           <BurgerIcon />
         </button>
 
@@ -65,74 +65,76 @@ export function SiteHeader() {
           <img src="/logo-dark.svg" alt="მულტიკოლორი" />
         </Link>
 
-        <nav className="hdr-nav" aria-label="მთავარი ნავიგაცია">
-          <div className="has-mega">
-            <Link href="/shop" aria-current={isActive("/shop") ? "page" : undefined}>
-              კატალოგი
-              <ChevronDownIcon />
-            </Link>
-            <div className="mega">
-              <MegaColumns db={db} />
-              <div className="mega-brands">
-                <h5>ბრენდები</h5>
-                <ul>
-                  {db.brands.map((b) => (
-                    <li key={b.id}>
-                      <Link href={`/brand?b=${b.id}`}>{b.name}</Link>
-                    </li>
-                  ))}
-                </ul>
-                <Link className="mega-all" href="/shop">
-                  სრული კატალოგი →
-                </Link>
-              </div>
-            </div>
-          </div>
-          {!settings.pricesHidden && (
-            <Link
-              href="/sale"
-              className="is-sale"
-              aria-current={isActive("/sale") ? "page" : undefined}
-            >
-              ფასდაკლება
-            </Link>
-          )}
-          <Link href="/about" aria-current={isActive("/about") ? "page" : undefined}>
-            ჩვენ შესახებ
-          </Link>
-          <Link href="/contact" aria-current={isActive("/contact") ? "page" : undefined}>
-            კონტაქტი
-          </Link>
-        </nav>
+        <Link className="hdr-loc" href="/shop" aria-label="მიწოდება">
+          <span className="pin"><PinIcon /></span>
+          <span>მიწოდება მთელ საქართველოში</span>
+        </Link>
 
         <form className="hdr-search" action="/shop" role="search">
           <SearchIcon />
           <input
             type="search"
             name="q"
-            placeholder="ძიება — საღებავი, ლაქი, ბურღი…"
+            placeholder="მოძებნე — საღებავი, ლაქი, ბურღი…"
             aria-label="ძიება კატალოგში"
           />
         </form>
 
         {settings.commerceEnabled && (
-          <>
-            <Link
-              className="hdr-cart"
-              href={user ? "/account" : "/login"}
-              aria-label={user ? "ჩემი ანგარიში" : "შესვლა"}
-              title={user ? "ჩემი ანგარიში" : "შესვლა"}
-            >
-              <UserIcon />
-            </Link>
+          <div className="hdr-actions">
+            {user ? (
+              <Link className="hdr-cart" href="/account" aria-label="ჩემი ანგარიში" title="ჩემი ანგარიში">
+                <UserIcon />
+              </Link>
+            ) : (
+              <Link className="hdr-login" href="/login">
+                <UserIcon />
+                <span>შესვლა</span>
+              </Link>
+            )}
             <Link className="hdr-cart" href="/cart" aria-label="კალათა">
               <CartIcon />
               <span className="cart-count">{count > 0 ? count : ""}</span>
             </Link>
-          </>
+          </div>
         )}
       </div>
 
+      {/* ---- row 2: category bar ---- */}
+      <div className="wrap hdr-cats">
+        <div className="has-mega">
+          <button className="cats-pill">
+            <GridIcon /> კატეგორიები
+            <ChevronDownIcon />
+          </button>
+          <div className="mega">
+            <MegaColumns db={db} />
+            <div className="mega-brands">
+              <h5>ბრენდები</h5>
+              <ul>
+                {db.brands.map((b) => (
+                  <li key={b.id}>
+                    <Link href={`/brand?b=${b.id}`}>{b.name}</Link>
+                  </li>
+                ))}
+              </ul>
+              <Link className="mega-all" href="/shop">სრული კატალოგი →</Link>
+            </div>
+          </div>
+        </div>
+
+        <Link href="/shop" aria-current={isActive("/shop") ? "page" : undefined}>სრული კატალოგი</Link>
+        <Link href="/about" aria-current={isActive("/about") ? "page" : undefined}>ჩვენ შესახებ</Link>
+        <Link href="/contact" aria-current={isActive("/contact") ? "page" : undefined}>კონტაქტი</Link>
+
+        <div className="cats-right">
+          {!settings.pricesHidden && (
+            <Link href="/sale" className="is-sale">ფასდაკლება</Link>
+          )}
+        </div>
+      </div>
+
+      {/* ---- mobile drawer ---- */}
       <div className={`mob-drawer${drawerOpen ? " open" : ""}`} id="mob-drawer">
         <div className="scrim" onClick={() => setDrawerOpen(false)} />
         <div className="panel">
@@ -141,45 +143,30 @@ export function SiteHeader() {
             <img src="/logo-dark.svg" alt="მულტიკოლორი" />
           </Link>
           <nav>
-            <Link href="/shop" onClick={() => setDrawerOpen(false)}>
-              სრული კატალოგი
-            </Link>
-            <Link
-              href="/sale"
-              style={{ color: "var(--sale)" }}
-              onClick={() => setDrawerOpen(false)}
-            >
-              ფასდაკლება
-            </Link>
+            <Link href="/shop" onClick={() => setDrawerOpen(false)}>სრული კატალოგი</Link>
+            {!settings.pricesHidden && (
+              <Link href="/sale" style={{ color: "var(--sale)" }} onClick={() => setDrawerOpen(false)}>ფასდაკლება</Link>
+            )}
+            {settings.commerceEnabled && (
+              <Link href={user ? "/account" : "/login"} onClick={() => setDrawerOpen(false)}>
+                {user ? "ჩემი ანგარიში" : "შესვლა"}
+              </Link>
+            )}
             <h5>კატეგორიები</h5>
             {sortedCats.map((c) => (
-              <Link
-                key={c.id}
-                className="sub"
-                href={`/shop?cat=${c.id}`}
-                onClick={() => setDrawerOpen(false)}
-              >
+              <Link key={c.id} className="sub" href={`/shop?cat=${c.id}`} onClick={() => setDrawerOpen(false)}>
                 {c.name}
               </Link>
             ))}
             <h5>ბრენდები</h5>
             {db.brands.map((b) => (
-              <Link
-                key={b.id}
-                className="sub"
-                href={`/brand?b=${b.id}`}
-                onClick={() => setDrawerOpen(false)}
-              >
+              <Link key={b.id} className="sub" href={`/brand?b=${b.id}`} onClick={() => setDrawerOpen(false)}>
                 {b.name}
               </Link>
             ))}
             <h5>ინფორმაცია</h5>
-            <Link className="sub" href="/about" onClick={() => setDrawerOpen(false)}>
-              ჩვენ შესახებ
-            </Link>
-            <Link className="sub" href="/contact" onClick={() => setDrawerOpen(false)}>
-              კონტაქტი
-            </Link>
+            <Link className="sub" href="/about" onClick={() => setDrawerOpen(false)}>ჩვენ შესახებ</Link>
+            <Link className="sub" href="/contact" onClick={() => setDrawerOpen(false)}>კონტაქტი</Link>
           </nav>
         </div>
       </div>

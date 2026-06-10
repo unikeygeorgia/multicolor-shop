@@ -9,6 +9,26 @@ const base: SVGProps<SVGSVGElement> = {
   strokeLinejoin: "round",
 };
 
+export function GridIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth={2} {...base} {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function PinIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth={1.8} {...base} {...props}>
+      <path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
 export function BurgerIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth={2} {...base} {...props}>
