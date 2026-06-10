@@ -9,7 +9,8 @@ export function SiteFooter() {
       <div className="wrap">
         <div className="ft-grid">
           <div className="ft-logo">
-            <b>მულტიკოლორი</b>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-light.svg" alt="მულტიკოლორი" />
             <p>
               სარემონტო და სამშენებლო მასალების ოფიციალური დისტრიბუტორი
               საქართველოში — 8 იმპორტირებული ბრენდი, შერჩეული ასორტიმენტი.

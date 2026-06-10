@@ -41,7 +41,7 @@ function MegaColumns({ db }: { db: MulticolorData }) {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { db, count } = useStore();
+  const { db, count, settings } = useStore();
   const { user } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -61,8 +61,8 @@ export function SiteHeader() {
         </button>
 
         <Link className="logo" href="/" aria-label="მულტიკოლორი — მთავარი">
-          <b>მულტიკოლორი</b>
-          <span className="spectrum-tick" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-dark.svg" alt="მულტიკოლორი" />
         </Link>
 
         <nav className="hdr-nav" aria-label="მთავარი ნავიგაცია">
@@ -88,13 +88,15 @@ export function SiteHeader() {
               </div>
             </div>
           </div>
-          <Link
-            href="/sale"
-            className="is-sale"
-            aria-current={isActive("/sale") ? "page" : undefined}
-          >
-            ფასდაკლება
-          </Link>
+          {!settings.pricesHidden && (
+            <Link
+              href="/sale"
+              className="is-sale"
+              aria-current={isActive("/sale") ? "page" : undefined}
+            >
+              ფასდაკლება
+            </Link>
+          )}
           <Link href="/about" aria-current={isActive("/about") ? "page" : undefined}>
             ჩვენ შესახებ
           </Link>
@@ -113,26 +115,30 @@ export function SiteHeader() {
           />
         </form>
 
-        <Link
-          className="hdr-cart"
-          href={user ? "/account" : "/login"}
-          aria-label={user ? "ჩემი ანგარიში" : "შესვლა"}
-          title={user ? "ჩემი ანგარიში" : "შესვლა"}
-        >
-          <UserIcon />
-        </Link>
-        <Link className="hdr-cart" href="/cart" aria-label="კალათა">
-          <CartIcon />
-          <span className="cart-count">{count > 0 ? count : ""}</span>
-        </Link>
+        {settings.commerceEnabled && (
+          <>
+            <Link
+              className="hdr-cart"
+              href={user ? "/account" : "/login"}
+              aria-label={user ? "ჩემი ანგარიში" : "შესვლა"}
+              title={user ? "ჩემი ანგარიში" : "შესვლა"}
+            >
+              <UserIcon />
+            </Link>
+            <Link className="hdr-cart" href="/cart" aria-label="კალათა">
+              <CartIcon />
+              <span className="cart-count">{count > 0 ? count : ""}</span>
+            </Link>
+          </>
+        )}
       </div>
 
       <div className={`mob-drawer${drawerOpen ? " open" : ""}`} id="mob-drawer">
         <div className="scrim" onClick={() => setDrawerOpen(false)} />
         <div className="panel">
           <Link className="logo" href="/" onClick={() => setDrawerOpen(false)}>
-            <b>მულტიკოლორი</b>
-            <span className="spectrum-tick" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-dark.svg" alt="მულტიკოლორი" />
           </Link>
           <nav>
             <Link href="/shop" onClick={() => setDrawerOpen(false)}>

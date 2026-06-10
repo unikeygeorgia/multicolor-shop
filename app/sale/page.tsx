@@ -1,14 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { fmt, prodImg } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
 import { ProductCard } from "@/components/product-card";
 
 export default function SalePage() {
-  const { db, brandById, prodById, addBundle } = useStore();
+  const { db, brandById, prodById, addBundle, settings, hydrated } = useStore();
+  const router = useRouter();
   const sale = db.products.filter((p) => p.salePct);
+
+  useEffect(() => {
+    if (hydrated && settings.pricesHidden) router.replace("/");
+  }, [hydrated, settings.pricesHidden, router]);
+
+  if (!hydrated || settings.pricesHidden) {
+    return <main className="wrap" style={{ minHeight: "60vh" }} />;
+  }
 
   return (
     <main className="wrap" data-screen-label="ფასდაკლების გვერდი">
@@ -55,7 +66,7 @@ export default function SalePage() {
                   const p = prodById(pid);
                   if (!p) return null;
                   return (
-                    <Link key={pid} href={`/product?id=${p.id}`} title={p.name}>
+                    <Link key={pid} href={`/product?slug=${p.slug || p.id}`} title={p.name}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={prodImg(p, brandById(p.brand), 160, 160)} alt={p.name} />
                     </Link>

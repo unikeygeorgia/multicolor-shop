@@ -12,7 +12,7 @@ import { CategoryTiles } from "@/components/home/category-tiles";
 import { ProBand } from "@/components/home/pro-band";
 
 export default function HomePage() {
-  const { db } = useStore();
+  const { db, settings } = useStore();
   const deals = db.products.filter((p) => p.salePct).slice(0, 4);
   const newArrivals = db.products.filter((p) => hasTag(p, "new")).slice(0, 4);
 
@@ -22,19 +22,21 @@ export default function HomePage() {
 
       <TrustBand />
 
-      {/* featured deals */}
-      <section className="section" aria-labelledby="deals-h">
-        <div className="sec-head">
-          <div>
-            <span className="kicker">შეთავაზებები</span>
-            <h2 id="deals-h">შერჩეული ფასდაკლებები</h2>
+      {/* featured deals — only when prices are shown */}
+      {!settings.pricesHidden && (
+        <section className="section" aria-labelledby="deals-h">
+          <div className="sec-head">
+            <div>
+              <span className="kicker">შეთავაზებები</span>
+              <h2 id="deals-h">შერჩეული ფასდაკლებები</h2>
+            </div>
+            <Link className="more" href="/sale">
+              ყველა ფასდაკლება →
+            </Link>
           </div>
-          <Link className="more" href="/sale">
-            ყველა ფასდაკლება →
-          </Link>
-        </div>
-        <ProductGrid products={deals} />
-      </section>
+          <ProductGrid products={deals} />
+        </section>
+      )}
 
       {/* shop by brand */}
       <section className="section" aria-labelledby="brands-h">

@@ -59,13 +59,27 @@ export interface Product {
   brand: string;
   cat: string;
   name: string;
+  /** auto-generated Latin slug from the (Georgian) name; used in the URL */
+  slug?: string;
   desc: string;
+  /** usage instructions (გამოყენების წესი) */
+  usage?: string;
+  /** extra info for the AI bot only — never shown on the storefront */
+  aiInfo?: string;
   sizes: ProductSize[];
   colors: ProductColor[];
   specs: ProductSpecs;
   tags: string[];
   featured?: boolean;
   salePct?: number;
+}
+
+/** Global storefront settings (settings table). */
+export interface AppSettings {
+  /** hide all prices on the storefront */
+  pricesHidden: boolean;
+  /** enable cart / checkout / accounts; when false the site is a catalog only */
+  commerceEnabled: boolean;
 }
 
 export interface HeroSlide {

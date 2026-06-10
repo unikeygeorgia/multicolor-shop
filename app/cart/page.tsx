@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { fmt, prodImg, salePrice } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -13,8 +14,14 @@ const SHIP = 10;
 const CITIES = ["თბილისი", "ბათუმი", "ქუთაისი", "რუსთავი", "გორი", "ზუგდიდი", "სხვა"];
 
 export default function CartPage() {
-  const { cart, brandById, prodById, updateCartQty, removeCartLine, clearCart } = useStore();
+  const { cart, brandById, prodById, updateCartQty, removeCartLine, clearCart, settings, hydrated } =
+    useStore();
   const { user, session, signInPassword } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (hydrated && !settings.commerceEnabled) router.replace("/");
+  }, [hydrated, settings.commerceEnabled, router]);
 
   const [mode, setMode] = useState<"order" | "quote">("order");
   const [submitted, setSubmitted] = useState<{ id: string; type: string; accountCreated: boolean } | null>(null);
@@ -93,6 +100,10 @@ export default function CartPage() {
     setBusy(false);
   };
 
+  if (!hydrated || !settings.commerceEnabled) {
+    return <main className="wrap" style={{ minHeight: "60vh" }} />;
+  }
+
   if (submitted) {
     return (
       <main className="wrap" data-screen-label="კალათა და შეკვეთა">
@@ -152,12 +163,12 @@ export default function CartPage() {
                   const colorObj = (l.p.colors || []).find((x) => x.n === l.color);
                   return (
                     <div className="citem" key={`${l.pid}-${l.size}-${l.color}-${idx}`}>
-                      <Link href={`/product?id=${l.p.id}`}>
+                      <Link href={`/product?slug=${l.p.slug || l.p.id}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={prodImg(l.p, brandById(l.p.brand), 200, 200)} alt={l.p.name} />
                       </Link>
                       <div>
-                        <Link className="nm" href={`/product?id=${l.p.id}`}>{l.p.name}</Link>
+                        <Link className="nm" href={`/product?slug=${l.p.slug || l.p.id}`}>{l.p.name}</Link>
                         <div className="variant">
                           <span className="size-pill">{l.size}</span>
                           {l.color && (

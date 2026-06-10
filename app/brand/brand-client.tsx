@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { minPrice } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
+import { brandLogo } from "@/lib/brand-logos";
 import { ProductCard } from "@/components/product-card";
 
 export function BrandClient() {
@@ -53,7 +54,14 @@ export function BrandClient() {
         style={{ background: `linear-gradient(120deg, ${b.tint}, color-mix(in oklab, ${b.tint} 72%, black))` }}
       >
         <div className="inner">
-          <div className="mark">{b.name[0]}</div>
+          {brandLogo(b.id) ? (
+            <div className="mark logo-box">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={brandLogo(b.id)} alt={b.name} />
+            </div>
+          ) : (
+            <div className="mark">{b.name[0]}</div>
+          )}
           <h1>{b.name}</h1>
           <div className="tag">{b.tagline} · {b.country}</div>
           <p className="story">{b.story}</p>

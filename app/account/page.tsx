@@ -31,7 +31,7 @@ type Tab = "orders" | "profile" | "addresses";
 
 export default function AccountPage() {
   const { user, ready, signOut } = useAuth();
-  const { prodById, addToCart, toast } = useStore();
+  const { prodById, addToCart, toast, settings, hydrated } = useStore();
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("orders");
@@ -42,8 +42,9 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (ready && !user) router.replace("/login");
-  }, [ready, user, router]);
+    if (hydrated && !settings.commerceEnabled) router.replace("/");
+    else if (ready && !user) router.replace("/login");
+  }, [hydrated, settings.commerceEnabled, ready, user, router]);
 
   const load = useCallback(async () => {
     if (!supabase || !user) return;
@@ -64,7 +65,7 @@ export default function AccountPage() {
     if (ready && user) load();
   }, [ready, user, load]);
 
-  if (!ready || !user) {
+  if (!hydrated || !settings.commerceEnabled || !ready || !user) {
     return <main className="wrap" style={{ minHeight: "60vh" }} />;
   }
 

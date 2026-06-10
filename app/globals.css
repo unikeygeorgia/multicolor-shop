@@ -1761,3 +1761,19 @@ body.admin { background: #f4f3f0; }
   .acct-nav { flex-direction: row; flex-wrap: wrap; position: static; }
   .acct-nav .signout { border-top: none; padding-top: 10px; margin-top: 0; }
 }
+
+/* ============================================================
+   Brand & site logos
+   ============================================================ */
+.logo img { height: 38px; width: auto; display: block; }
+.adm-side .logo img { height: 30px; width: auto; display: block; }
+.ft-logo img { height: 48px; width: auto; display: block; }
+
+.logo-box {
+  background: #fff !important;
+  border: 1px solid var(--line);
+  padding: 6px;
+  overflow: hidden;
+}
+.logo-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.bhero .mark.logo-box { border-color: rgba(255, 255, 255, 0.5); }

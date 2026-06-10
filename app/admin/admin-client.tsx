@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { fmt, minPrice, prodImg, salePrice } from "@/lib/utils";
+import { slugify } from "@/lib/slug";
+import { brandLogo } from "@/lib/brand-logos";
 import { supabase } from "@/lib/supabase";
 import { useStore } from "@/components/store-provider";
 import { useAuth } from "@/components/auth-provider";
 import type {
+  AppSettings,
   Brand,
   Category,
   HeroSlide,
@@ -48,7 +51,7 @@ function uid(prefix: string) {
   return prefix + "-" + Math.random().toString(36).slice(2, 7);
 }
 
-type View = "dash" | "products" | "brands" | "cats" | "promos" | "orders";
+type View = "dash" | "products" | "brands" | "cats" | "promos" | "orders" | "settings";
 type Editor =
   | { kind: "order"; id: string }
   | { kind: "product"; id: string | null }
@@ -113,6 +116,7 @@ export function AdminClient() {
     { v: "cats", label: "კატეგორიები და ფილტრები" },
     { v: "promos", label: "აქციები" },
     { v: "orders", label: "შეკვეთები", cnt: newCount || "" },
+    { v: "settings", label: "პარამეტრები" },
   ];
 
   return (
@@ -120,7 +124,8 @@ export function AdminClient() {
       <div className="adm-layout" data-screen-label="ადმინ პანელი">
         <aside className="adm-side">
           <Link className="logo" href="/">
-            <b>მულტიკოლორი</b>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-light.svg" alt="მულტიკოლორი" />
             <span className="sub">ადმინისტრირება</span>
             <span className="spectrum-tick" />
           </Link>
@@ -183,6 +188,12 @@ export function AdminClient() {
               onHero={(i) => setEditor({ kind: "hero", index: i })}
             />
           )}
+          {view === "settings" && (
+            <SettingsView
+              settings={store.settings}
+              updateSetting={store.updateSetting}
+            />
+          )}
         </main>
       </div>
 
@@ -239,6 +250,60 @@ export function AdminClient() {
         </Drawer>
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   Settings
+   ============================================================ */
+function SettingsView({
+  settings, updateSetting,
+}: {
+  settings: AppSettings;
+  updateSetting: (key: "prices_hidden" | "commerce_enabled", value: boolean) => void;
+}) {
+  return (
+    <>
+      <div className="adm-head">
+        <h1>პარამეტრები</h1>
+        <p className="sub">საიტის გლობალური გადამრთველები — ცვლილება მაშინვე აისახება საიტზე.</p>
+      </div>
+      <div className="acard pad" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div>
+            <b style={{ fontSize: 14 }}>ფასების ჩვენება საიტზე</b>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>
+              გამორთულია → ფასები საიტზე არ ჩანს (ადმინში და ფორმაში რჩება).
+            </p>
+          </div>
+          <label className="tgl">
+            <input
+              type="checkbox"
+              checked={!settings.pricesHidden}
+              onChange={(e) => updateSetting("prices_hidden", !e.target.checked)}
+            />
+            <span />
+          </label>
+        </div>
+        <div style={{ borderTop: "1px solid var(--line)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div>
+            <b style={{ fontSize: 14 }}>ვაჭრობა ჩართულია (კალათა / შეკვეთა / ანგარიში)</b>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>
+              გამორთულია → საიტი მხოლოდ კატალოგია; კალათა, შეკვეთა და რეგისტრაცია დამალულია.
+            </p>
+          </div>
+          <label className="tgl">
+            <input
+              type="checkbox"
+              checked={settings.commerceEnabled}
+              onChange={(e) => updateSetting("commerce_enabled", e.target.checked)}
+            />
+            <span />
+          </label>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -636,7 +701,7 @@ function ProductsView({
   );
 }
 
-interface SizeRow { l: string; p: string; s: string }
+interface SizeRow { l: string; p: string }
 interface ColorRow { h: string; n: string; ral: string }
 
 function ProductEditor({
@@ -657,11 +722,15 @@ function ProductEditor({
     };
 
   const [name, setName] = useState(base.name);
+  const [slug, setSlug] = useState(base.slug || "");
+  const [slugTouched, setSlugTouched] = useState(!!base.slug);
   const [brand, setBrand] = useState(base.brand);
   const [cat, setCat] = useState(base.cat);
   const [desc, setDesc] = useState(base.desc || "");
+  const [usage, setUsage] = useState(base.usage || "");
+  const [aiInfo, setAiInfo] = useState(base.aiInfo || "");
   const [sizes, setSizes] = useState<SizeRow[]>(
-    base.sizes.map((s) => ({ l: s.l, p: String(s.p), s: String(s.s) }))
+    base.sizes.map((s) => ({ l: s.l, p: String(s.p) }))
   );
   const [colors, setColors] = useState<ColorRow[]>(
     (base.colors || []).map((c) => ({ h: c.h, n: c.n, ral: c.ral || "" }))
@@ -681,9 +750,12 @@ function ProductEditor({
     const next: Product = {
       ...base,
       name: name.trim() || base.name || "უსახელო პროდუქტი",
+      slug: (slug.trim() ? slugify(slug) : slugify(name.trim())) || base.slug,
       brand, cat, desc: desc.trim(),
+      usage: usage.trim() || undefined,
+      aiInfo: aiInfo.trim() || undefined,
       sizes: sizes
-        .map((r) => ({ l: r.l.trim(), p: parseFloat(r.p) || 0, s: parseInt(r.s) || 0 }))
+        .map((r) => ({ l: r.l.trim(), p: parseFloat(r.p) || 0, s: 0 }))
         .filter((s) => s.l),
       colors: colors
         .map((r) => {
@@ -722,7 +794,12 @@ function ProductEditor({
     <>
       <DrawerHead title={isNew ? "ახალი პროდუქტი" : "პროდუქტის რედაქტირება"} onClose={onClose} />
       <div className="dr-body">
-        <div className="field"><label>დასახელება (ka) *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="მაგ. ინტერიერის საღებავი" /></div>
+        <div className="field"><label>დასახელება (ka) *</label><input value={name} onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)); }} placeholder="მაგ. ინტერიერის საღებავი" /></div>
+        <div className="field">
+          <label>ლინკი (slug) — ავტომატური ლათინურად</label>
+          <input value={slug} onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }} placeholder="latin-slug" />
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>მისამართი: /product?slug={slug || "…"}</span>
+        </div>
         <div className="frow2">
           <div className="field"><label>ბრენდი</label>
             <select value={brand} onChange={(e) => setBrand(e.target.value)}>
@@ -735,19 +812,19 @@ function ProductEditor({
             </select>
           </div>
         </div>
-        <div className="field"><label>აღწერა</label><textarea style={{ minHeight: 70 }} value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+        <div className="field"><label>ინფორმაცია პროდუქტის შესახებ (აღწერა)</label><textarea style={{ minHeight: 70 }} value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+        <div className="field"><label>გამოყენების წესი</label><textarea style={{ minHeight: 70 }} value={usage} onChange={(e) => setUsage(e.target.value)} placeholder="როგორ გამოიყენება პროდუქტი…" /></div>
 
         <div className="fset">
-          <div className="fset-h"><b>ზომის ვარიანტები (ფასი თითო ზომაზე)</b></div>
+          <div className="fset-h"><b>ზომები / წონები (ფასი თითო ვარიანტზე)</b></div>
           {sizes.map((r, i) => (
-            <div className="vrow" key={i}>
-              <input placeholder="ზომა (მაგ. 5კგ)" value={r.l} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, l: e.target.value } : x))} />
+            <div className="vrow" key={i} style={{ gridTemplateColumns: "1fr 120px 30px" }}>
+              <input placeholder="ზომა/წონა (მაგ. 5კგ)" value={r.l} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, l: e.target.value } : x))} />
               <input type="number" step="0.1" min="0" placeholder="ფასი ₾" value={r.p} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, p: e.target.value } : x))} />
-              <input type="number" step="1" min="0" placeholder="ც" value={r.s} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, s: e.target.value } : x))} />
               <button className="del" type="button" title="წაშლა" onClick={() => setSizes((s) => s.filter((_, j) => j !== i))}>×</button>
             </div>
           ))}
-          <button className="addrow" type="button" onClick={() => setSizes((s) => [...s, { l: "", p: "", s: "" }])}>+ ზომის დამატება</button>
+          <button className="addrow" type="button" onClick={() => setSizes((s) => [...s, { l: "", p: "" }])}>+ ვარიანტის დამატება</button>
         </div>
 
         <div className="fset">
@@ -789,6 +866,19 @@ function ProductEditor({
             <div className="field"><label>ფასდაკლება %</label><input type="number" min="0" max="90" value={salePct} onChange={(e) => setSalePct(e.target.value)} placeholder="0 = არ არის" /></div>
           </div>
         </div>
+
+        <div className="fset">
+          <div className="fset-h"><b>AI ბოტის ინფორმაცია</b></div>
+          <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+            დამატებითი ინფო unichat.ge-ს AI ბოტისთვის — საიტზე არ ჩანს, მხოლოდ ბოტი იყენებს კლიენტის კითხვებზე პასუხისთვის.
+          </p>
+          <textarea
+            value={aiInfo}
+            onChange={(e) => setAiInfo(e.target.value)}
+            placeholder="მაგ. ტექნიკური დეტალები, ხშირი კითხვები, რჩევები, შეზღუდვები…"
+            style={{ minHeight: 90, width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", fontSize: 13 }}
+          />
+        </div>
       </div>
       <div className="dr-foot">
         {!isNew && <button className="btn-line" style={{ color: "var(--sale)", borderColor: "var(--sale)" }} onClick={remove}>წაშლა</button>}
@@ -810,7 +900,14 @@ function BrandsView({ db, onEdit }: { db: MulticolorData; onEdit: (id: string | 
           const n = db.products.filter((p) => p.brand === b.id).length;
           return (
             <div className="brand-card rowlink" key={b.id} style={{ cursor: "pointer" }} onClick={() => onEdit(b.id)}>
-              <span className="mk" style={{ background: b.tint }}>{b.name[0]}</span>
+              {brandLogo(b.id) ? (
+                <span className="mk logo-box">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={brandLogo(b.id)} alt={b.name} />
+                </span>
+              ) : (
+                <span className="mk" style={{ background: b.tint }}>{b.name[0]}</span>
+              )}
               <div className="bd">
                 <b className="nm">{b.name}</b> <span className="dim">· {b.country} · {n} პროდუქტი</span>
                 <p className="st">{b.story}</p>

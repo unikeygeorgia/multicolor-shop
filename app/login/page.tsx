@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
+import { useStore } from "@/components/store-provider";
 
 function GoogleIcon() {
   return (
@@ -20,6 +21,7 @@ function GoogleIcon() {
 export default function LoginPage() {
   const { user, ready, signInPassword, signUpPassword, signInGoogle, sendPhoneOtp, verifyPhoneOtp } =
     useAuth();
+  const { settings, hydrated } = useStore();
   const router = useRouter();
 
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -36,8 +38,9 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("");
 
   useEffect(() => {
-    if (ready && user) router.replace("/account");
-  }, [ready, user, router]);
+    if (hydrated && !settings.commerceEnabled) router.replace("/");
+    else if (ready && user) router.replace("/account");
+  }, [hydrated, settings.commerceEnabled, ready, user, router]);
 
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +78,10 @@ export default function LoginPage() {
     else router.replace("/account");
     setBusy(false);
   };
+
+  if (!hydrated || !settings.commerceEnabled) {
+    return <main className="wrap" style={{ minHeight: "60vh" }} />;
+  }
 
   return (
     <main className="wrap" data-screen-label="ავტორიზაცია">

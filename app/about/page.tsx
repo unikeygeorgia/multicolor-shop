@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { ph } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
+import { brandLogo } from "@/lib/brand-logos";
 
 export default function AboutPage() {
   const { db } = useStore();
@@ -60,15 +61,25 @@ export default function AboutPage() {
           </div>
         </div>
         <div className="partner-row">
-          {db.brands.map((b) => (
-            <Link key={b.id} className="partner" href={`/brand?b=${b.id}`}>
-              <span className="mk" style={{ background: b.tint }}>{b.name[0]}</span>
-              <span>
-                <b>{b.name}</b>
-                <span>{b.tagline}</span>
-              </span>
-            </Link>
-          ))}
+          {db.brands.map((b) => {
+            const logo = brandLogo(b.id);
+            return (
+              <Link key={b.id} className="partner" href={`/brand?b=${b.id}`}>
+                {logo ? (
+                  <span className="mk logo-box">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logo} alt={b.name} />
+                  </span>
+                ) : (
+                  <span className="mk" style={{ background: b.tint }}>{b.name[0]}</span>
+                )}
+                <span>
+                  <b>{b.name}</b>
+                  <span>{b.tagline}</span>
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

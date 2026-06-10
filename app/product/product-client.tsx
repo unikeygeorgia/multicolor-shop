@@ -12,34 +12,31 @@ import { CartIcon } from "@/components/icons";
 const GALLERY_SHOTS = ["ფოტო · ძირითადი", "ფოტო · შეფუთვა", "ფოტო · გამოყენება"];
 
 export function ProductClient() {
-  const { db, brandById, catById, surfName, addToCart } = useStore();
+  const { db, brandById, catById, surfName, addToCart, settings } = useStore();
   const params = useSearchParams();
+  const key = params.get("slug") || params.get("id") || "";
 
   const p = useMemo(
-    () => db.products.find((x) => x.id === params.get("id")) || db.products[0],
-    [db.products, params]
+    () => db.products.find((x) => x.slug === key || x.id === key) || db.products[0],
+    [db.products, key]
   );
   const b = brandById(p.brand)!;
   const c = catById(p.cat)!;
+  const { pricesHidden, commerceEnabled } = settings;
 
-  const [size, setSize] = useState<string>(
-    (p.sizes.find((s) => s.s > 0) || p.sizes[0]).l
-  );
-  const [color, setColor] = useState<string | null>(
-    p.colors && p.colors.length ? p.colors[0].n : null
-  );
+  const [size, setSize] = useState<string>(p.sizes[0]?.l ?? "");
+  const [color, setColor] = useState<string | null>(p.colors && p.colors.length ? p.colors[0].n : null);
   const [shot, setShot] = useState(0);
 
-  /* reset selection if the product changes */
   useEffect(() => {
-    setSize((p.sizes.find((s) => s.s > 0) || p.sizes[0]).l);
+    setSize(p.sizes[0]?.l ?? "");
     setColor(p.colors && p.colors.length ? p.colors[0].n : null);
     setShot(0);
     document.title = p.name + " — მულტიკოლორი";
   }, [p]);
 
   const curSize = p.sizes.find((s) => s.l === size) || p.sizes[0];
-  const eff = salePrice(p, curSize.p);
+  const eff = curSize ? salePrice(p, curSize.p) : 0;
   const colorObj = p.colors.find((x) => x.n === color);
 
   const specRows: [string, string][] = [];
@@ -56,7 +53,6 @@ export function ProductClient() {
     .slice(0, 4);
 
   const add = () => addToCart(p.id, size, color, 1);
-  const outOfStock = curSize.s <= 0;
 
   return (
     <>
@@ -75,24 +71,15 @@ export function ProductClient() {
           <div className="gallery">
             <div className="main">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                id="g-main"
-                src={ph(GALLERY_SHOTS[shot], b.tint, 900, 900)}
-                alt={`${p.name} — პროდუქტის ფოტო`}
-              />
+              <img id="g-main" src={ph(GALLERY_SHOTS[shot], b.tint, 900, 900)} alt={`${p.name} — პროდუქტის ფოტო`} />
               <div className="badges">
                 {hasTag(p, "new") && <span className="badge new">ახალი</span>}
-                {p.salePct ? <span className="badge sale">−{p.salePct}%</span> : null}
+                {p.salePct && !pricesHidden ? <span className="badge sale">−{p.salePct}%</span> : null}
               </div>
             </div>
             <div className="thumbs">
               {GALLERY_SHOTS.map((g, i) => (
-                <button
-                  key={g}
-                  className={i === shot ? "on" : ""}
-                  aria-label={g}
-                  onClick={() => setShot(i)}
-                >
+                <button key={g} className={i === shot ? "on" : ""} aria-label={g} onClick={() => setShot(i)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={ph(g, b.tint, 200, 200)} alt="" />
                 </button>
@@ -102,27 +89,28 @@ export function ProductClient() {
 
           <div className="buy">
             <Link className="brandlink" href={`/brand?b=${b.id}`}>
-              <span className="mark" style={{ background: b.tint }}>{b.name[0]}</span>{" "}
-              {b.name} · {b.country}
+              <span className="mark" style={{ background: b.tint }}>{b.name[0]}</span> {b.name} · {b.country}
             </Link>
             <h1>{p.name}</h1>
             <p className="lead">{p.desc || ""}</p>
 
-            <div className="opt">
-              <div className="opt-label">შეფუთვა <span>— {size}</span></div>
-              <div className="sizebtns">
-                {p.sizes.map((s) => (
-                  <button
-                    key={s.l}
-                    className={`sizebtn${s.l === size ? " on" : ""}${s.s <= 0 ? " out" : ""}`}
-                    onClick={() => setSize(s.l)}
-                  >
-                    {s.l}
-                    <small className="num">{fmt(salePrice(p, s.p))}</small>
-                  </button>
-                ))}
+            {p.sizes.length > 0 && (
+              <div className="opt">
+                <div className="opt-label">შეფუთვა / ზომა <span>— {size}</span></div>
+                <div className="sizebtns">
+                  {p.sizes.map((s) => (
+                    <button
+                      key={s.l}
+                      className={`sizebtn${s.l === size ? " on" : ""}`}
+                      onClick={() => setSize(s.l)}
+                    >
+                      {s.l}
+                      {!pricesHidden && <small className="num">{fmt(salePrice(p, s.p))}</small>}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {p.colors && p.colors.length > 0 && (
               <div className="opt">
@@ -145,35 +133,38 @@ export function ProductClient() {
               </div>
             )}
 
-            <div className="priceline">
-              <span className={`big${p.salePct ? " sale" : ""}`}>{fmt(eff)}</span>
-              {p.salePct ? (
-                <>
-                  <span className="old">{fmt(curSize.p)}</span>
-                  <span className="badge sale">−{p.salePct}%</span>
-                </>
-              ) : null}
-            </div>
-            <div className={`stockline ${outOfStock ? "out" : curSize.s <= 10 ? "low" : "ok"}`}>
-              {outOfStock
-                ? "ამოიწურა — შეუკვეთეთ წინასწარ"
-                : curSize.s <= 10
-                ? `მარაგი იწურება — დარჩა ${curSize.s} ც`
-                : `✓ მარაგშია — ${curSize.s} ც`}
+            {!pricesHidden && curSize && (
+              <div className="priceline">
+                <span className={`big${p.salePct ? " sale" : ""}`}>{fmt(eff)}</span>
+                {p.salePct ? (
+                  <>
+                    <span className="old">{fmt(curSize.p)}</span>
+                    <span className="badge sale">−{p.salePct}%</span>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {commerceEnabled && (
+              <div className="buyrow">
+                <button className="btn lg" onClick={add}>
+                  <CartIcon /> კალათაში დამატება
+                </button>
+                <Link className="btn-line lg" href={`/contact?type=bulk&p=${p.id}`}>ბითუმად შეთავაზება</Link>
+              </div>
+            )}
+            <div className="quoterow">
+              დაგაინტერესა? <Link href={`/contact?type=bulk&p=${p.id}`}>მოგვწერე ამ პროდუქტზე →</Link>
             </div>
 
-            <div className="buyrow">
-              <button className="btn lg" disabled={outOfStock} onClick={add}>
-                <CartIcon /> კალათაში დამატება
-              </button>
-              <Link className="btn-line lg" href={`/contact?type=bulk&p=${p.id}`}>
-                ბითუმად შეთავაზება
-              </Link>
-            </div>
-            <div className="quoterow">
-              პროფესიონალი ხარ?{" "}
-              <Link href={`/contact?type=bulk&p=${p.id}`}>მოითხოვე ობიექტის ფასი →</Link>
-            </div>
+            {p.usage && (
+              <div className="specs">
+                <h3>გამოყენების წესი</h3>
+                <p style={{ fontSize: "14px", color: "var(--ink-soft)", lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                  {p.usage}
+                </p>
+              </div>
+            )}
 
             <div className="specs">
               <h3>მახასიათებლები</h3>
@@ -207,17 +198,17 @@ export function ProductClient() {
         </section>
       </main>
 
-      <div className="mob-buy">
-        <div>
-          <div className={`p${p.salePct ? " sale" : ""}`}>{fmt(eff)}</div>
-          <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            {size}{color ? " · " + color : ""}
+      {commerceEnabled && (
+        <div className="mob-buy">
+          <div>
+            {!pricesHidden && <div className={`p${p.salePct ? " sale" : ""}`}>{fmt(eff)}</div>}
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>
+              {size}{color ? " · " + color : ""}
+            </div>
           </div>
+          <button className="btn" onClick={add}>კალათაში დამატება</button>
         </div>
-        <button className="btn" disabled={outOfStock} onClick={add}>
-          კალათაში დამატება
-        </button>
-      </div>
+      )}
     </>
   );
 }

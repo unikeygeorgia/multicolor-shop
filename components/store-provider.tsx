@@ -27,6 +27,7 @@ import {
   rowToPromotion,
 } from "@/lib/mappers";
 import type {
+  AppSettings,
   Brand,
   CartLine,
   CatGroup,
@@ -38,6 +39,8 @@ import type {
   Promotion,
   Surface,
 } from "@/lib/types";
+
+const DEFAULT_SETTINGS: AppSettings = { pricesHidden: true, commerceEnabled: false };
 
 const CART_KEY = "mc_cart_v1";
 
@@ -77,6 +80,8 @@ interface StoreValue {
   hydrated: boolean;
   usingSupabase: boolean;
   db: MulticolorData;
+  settings: AppSettings;
+  updateSetting: (key: "prices_hidden" | "commerce_enabled", value: boolean) => void;
 
   brandById: (id: string) => Brand | undefined;
   catById: (id: string) => Category | undefined;
@@ -123,6 +128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [db, setDb] = useState<MulticolorData>(MC_DATA);
   const [orders, setOrders] = useState<Order[]>(MC_DATA.orders);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
@@ -137,7 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadFromSupabase = useCallback(async () => {
     if (!supabase) return;
     try {
-      const [brands, catGroups, surfaces, categories, products, promotions, bundles, hero, ord] =
+      const [brands, catGroups, surfaces, categories, products, promotions, bundles, hero, ord, sett] =
         await Promise.all([
           supabase.from("brands").select("*"),
           supabase.from("cat_groups").select("*"),
@@ -148,7 +154,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           supabase.from("bundles").select("*"),
           supabase.from("hero_slides").select("*").order("order"),
           supabase.from("orders").select("*").order("created_at", { ascending: false }),
+          supabase.from("settings").select("*"),
         ]);
+
+      // settings load independently of catalogue
+      if (sett.data) {
+        const m: Record<string, unknown> = {};
+        sett.data.forEach((r: { key: string; value: unknown }) => { m[r.key] = r.value; });
+        setSettings({
+          pricesHidden: m["prices_hidden"] === undefined ? true : Boolean(m["prices_hidden"]),
+          commerceEnabled: m["commerce_enabled"] === undefined ? false : Boolean(m["commerce_enabled"]),
+        });
+      }
 
       if (products.error || brands.error) {
         console.error("Supabase load error", products.error || brands.error);
@@ -429,11 +446,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadFromSupabase();
   }, [loadFromSupabase]);
 
+  const updateSetting = useCallback(
+    (key: "prices_hidden" | "commerce_enabled", value: boolean) => {
+      setSettings((prev) =>
+        key === "prices_hidden" ? { ...prev, pricesHidden: value } : { ...prev, commerceEnabled: value }
+      );
+      if (supabase)
+        supabase
+          .from("settings")
+          .upsert({ key, value, updated_at: new Date().toISOString() })
+          .then(({ error }) => {
+            if (error) console.error("setting update failed", error);
+          });
+    },
+    []
+  );
+
   const value = useMemo<StoreValue>(
     () => ({
       hydrated,
       usingSupabase: isSupabaseConfigured,
       db,
+      settings,
+      updateSetting,
       brandById,
       catById,
       prodById,
@@ -462,7 +497,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
     }),
     [
-      hydrated, db, brandById, catById, prodById, surfName, cart, count,
+      hydrated, db, settings, updateSetting, brandById, catById, prodById, surfName, cart, count,
       addToCart, quickAdd, addBundle, updateCartQty, removeCartLine, clearCart,
       orders, pushOrder, setOrderStatus, upsertProduct, deleteProduct, upsertBrand,
       deleteBrand, updateCategory, savePromotion, deletePromotion, togglePromotion,
