@@ -7,6 +7,8 @@ import { fmt, minPrice, prodImg, salePrice } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
 import type {
   Brand,
+  Category,
+  HeroSlide,
   MulticolorData,
   Order,
   Product,
@@ -44,22 +46,6 @@ function uid(prefix: string) {
   return prefix + "-" + Math.random().toString(36).slice(2, 7);
 }
 
-function applyPromoDraft(draft: MulticolorData, x: Promotion) {
-  const p = draft.products.find((pp) => pp.id === x.target);
-  if (!p) return;
-  if (x.active && x.type === "pct") {
-    p.salePct = x.value;
-    if (!p.tags.includes("sale")) p.tags.push("sale");
-  } else if (x.active && x.type === "fix") {
-    const base = Math.min(...p.sizes.map((s) => s.p));
-    p.salePct = Math.min(90, Math.round((x.value / base) * 100));
-    if (!p.tags.includes("sale")) p.tags.push("sale");
-  } else {
-    p.salePct = undefined;
-    p.tags = p.tags.filter((t) => t !== "sale");
-  }
-}
-
 type View = "dash" | "products" | "brands" | "cats" | "promos" | "orders";
 type Editor =
   | { kind: "order"; id: string }
@@ -71,7 +57,11 @@ type Editor =
 
 export function AdminClient() {
   const store = useStore();
-  const { db, orders, prodById, brandById, catById, mutateDb, resetDb, setOrderStatus } = store;
+  const {
+    db, orders, prodById, brandById, catById, setOrderStatus,
+    upsertProduct, deleteProduct, upsertBrand, deleteBrand, updateCategory,
+    savePromotion, deletePromotion, togglePromotion, updateHero, reload,
+  } = store;
   const [view, setView] = useState<View>("dash");
   const [editor, setEditor] = useState<Editor>(null);
 
@@ -122,16 +112,7 @@ export function AdminClient() {
           </nav>
           <div className="foot">
             <Link href="/">← მაღაზიის ნახვა</Link>
-            <button
-              onClick={() => {
-                if (confirm("დაბრუნდეს საწყისი (დემო) მონაცემები? ყველა ცვლილება წაიშლება.")) {
-                  resetDb();
-                  setView("dash");
-                }
-              }}
-            >
-              საწყისი მონაცემების აღდგენა
-            </button>
+            <button onClick={() => reload()}>მონაცემების განახლება</button>
           </div>
         </aside>
 
@@ -165,13 +146,12 @@ export function AdminClient() {
           {view === "brands" && (
             <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />
           )}
-          {view === "cats" && <CatsView db={db} mutateDb={mutateDb} toast={store.toast} />}
+          {view === "cats" && <CatsView db={db} updateCategory={updateCategory} toast={store.toast} />}
           {view === "promos" && (
             <PromosView
               db={db}
               prodById={prodById}
-              mutateDb={mutateDb}
-              toast={store.toast}
+              togglePromotion={togglePromotion}
               onPromo={(id) => setEditor({ kind: "promo", id })}
               onHero={(i) => setEditor({ kind: "hero", index: i })}
             />
@@ -195,7 +175,8 @@ export function AdminClient() {
             <ProductEditor
               db={db}
               product={editor.id ? db.products.find((p) => p.id === editor.id)! : null}
-              mutateDb={mutateDb}
+              upsertProduct={upsertProduct}
+              deleteProduct={deleteProduct}
               toast={store.toast}
               onClose={() => setEditor(null)}
             />
@@ -204,7 +185,8 @@ export function AdminClient() {
             <BrandEditor
               db={db}
               brand={editor.id ? db.brands.find((b) => b.id === editor.id)! : null}
-              mutateDb={mutateDb}
+              upsertBrand={upsertBrand}
+              deleteBrand={deleteBrand}
               onClose={() => setEditor(null)}
             />
           )}
@@ -212,7 +194,8 @@ export function AdminClient() {
             <PromoEditor
               db={db}
               promo={editor.id ? db.promotions.find((p) => p.id === editor.id)! : null}
-              mutateDb={mutateDb}
+              savePromotion={savePromotion}
+              deletePromotion={deletePromotion}
               toast={store.toast}
               onClose={() => setEditor(null)}
             />
@@ -221,7 +204,7 @@ export function AdminClient() {
             <HeroEditor
               db={db}
               index={editor.index}
-              mutateDb={mutateDb}
+              updateHero={updateHero}
               toast={store.toast}
               onClose={() => setEditor(null)}
             />
@@ -568,11 +551,12 @@ interface SizeRow { l: string; p: string; s: string }
 interface ColorRow { h: string; n: string; ral: string }
 
 function ProductEditor({
-  db, product, mutateDb, toast, onClose,
+  db, product, upsertProduct, deleteProduct, toast, onClose,
 }: {
   db: MulticolorData;
   product: Product | null;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
+  upsertProduct: (p: Product) => void;
+  deleteProduct: (id: string) => void;
   toast: (n: React.ReactNode) => void;
   onClose: () => void;
 }) {
@@ -633,11 +617,7 @@ function ProductEditor({
     if (isNewTag) next.tags.push("new");
     if (next.salePct) next.tags.push("sale");
 
-    mutateDb((d) => {
-      const idx = d.products.findIndex((p) => p.id === next.id);
-      if (idx >= 0) d.products[idx] = next;
-      else d.products.unshift(next);
-    });
+    upsertProduct(next);
     toast(<><span className="tick">✓</span> შენახულია — ცვლილება მაღაზიაზეც აისახა</>);
     onClose();
   };
@@ -645,7 +625,7 @@ function ProductEditor({
   const remove = () => {
     if (!product) return;
     if (!confirm("წაიშალოს პროდუქტი „" + product.name + "“?")) return;
-    mutateDb((d) => { d.products = d.products.filter((p) => p.id !== product.id); });
+    deleteProduct(product.id);
     onClose();
   };
 
@@ -755,11 +735,12 @@ function BrandsView({ db, onEdit }: { db: MulticolorData; onEdit: (id: string | 
 }
 
 function BrandEditor({
-  db, brand, mutateDb, onClose,
+  db, brand, upsertBrand, deleteBrand, onClose,
 }: {
   db: MulticolorData;
   brand: Brand | null;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
+  upsertBrand: (b: Brand) => void;
+  deleteBrand: (id: string) => void;
   onClose: () => void;
 }) {
   const isNew = !brand;
@@ -772,18 +753,14 @@ function BrandEditor({
 
   const save = () => {
     const next: Brand = { ...base, name: name.trim() || base.name || "ბრენდი", country: country.trim(), tagline: tagline.trim(), story: story.trim(), tint };
-    mutateDb((d) => {
-      const idx = d.brands.findIndex((b) => b.id === next.id);
-      if (idx >= 0) d.brands[idx] = next;
-      else d.brands.push(next);
-    });
+    upsertBrand(next);
     onClose();
   };
   const remove = () => {
     if (!brand) return;
     const n = db.products.filter((p) => p.brand === brand.id).length;
     if (n) { alert("ჯერ გადაიტანეთ ან წაშალეთ ამ ბრენდის " + n + " პროდუქტი."); return; }
-    mutateDb((d) => { d.brands = d.brands.filter((b) => b.id !== brand.id); });
+    deleteBrand(brand.id);
     onClose();
   };
 
@@ -816,31 +793,30 @@ function BrandEditor({
 const FACETS: [string, string][] = [["size", "ზომა"], ["color", "ფერი"], ["surface", "ზედაპირი"]];
 
 function CatsView({
-  db, mutateDb, toast,
+  db, updateCategory, toast,
 }: {
   db: MulticolorData;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
+  updateCategory: (c: Category) => void;
   toast: (n: React.ReactNode) => void;
 }) {
   const sorted = [...db.categories].sort((a, b) => a.order - b.order);
 
   const toggleFacet = (cid: string, f: string, on: boolean) => {
-    mutateDb((d) => {
-      const c = d.categories.find((x) => x.id === cid);
-      if (!c) return;
-      if (on) { if (!c.facets.includes(f)) c.facets.push(f); }
-      else c.facets = c.facets.filter((x) => x !== f);
-    });
+    const c = db.categories.find((x) => x.id === cid);
+    if (!c) return;
+    const facets = on
+      ? (c.facets.includes(f) ? c.facets : [...c.facets, f])
+      : c.facets.filter((x) => x !== f);
+    updateCategory({ ...c, facets });
     toast(<><span className="tick">✓</span> ფილტრები განახლდა</>);
   };
   const move = (id: string, dir: number) => {
-    mutateDb((d) => {
-      const s = [...d.categories].sort((a, b) => a.order - b.order);
-      const i = s.findIndex((c) => c.id === id);
-      const j = i + dir;
-      if (j < 0 || j >= s.length) return;
-      const t = s[i].order; s[i].order = s[j].order; s[j].order = t;
-    });
+    const s = [...db.categories].sort((a, b) => a.order - b.order);
+    const i = s.findIndex((c) => c.id === id);
+    const j = i + dir;
+    if (j < 0 || j >= s.length) return;
+    updateCategory({ ...s[i], order: s[j].order });
+    updateCategory({ ...s[j], order: s[i].order });
   };
 
   return (
@@ -881,24 +857,15 @@ function CatsView({
    Promotions + hero
    ============================================================ */
 function PromosView({
-  db, prodById, mutateDb, toast, onPromo, onHero,
+  db, prodById, togglePromotion, onPromo, onHero,
 }: {
   db: MulticolorData;
   prodById: (id: string) => Product | undefined;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
-  toast: (n: React.ReactNode) => void;
+  togglePromotion: (id: string, active: boolean) => void;
   onPromo: (id: string | null) => void;
   onHero: (i: number) => void;
 }) {
-  const toggleActive = (id: string, active: boolean) => {
-    mutateDb((d) => {
-      const x = d.promotions.find((q) => q.id === id);
-      if (!x) return;
-      x.active = active;
-      applyPromoDraft(d, x);
-    });
-    toast(<><span className="tick">✓</span> აქცია {active ? "ჩაირთო" : "გამოირთო"}</>);
-  };
+  const toggleActive = (id: string, active: boolean) => togglePromotion(id, active);
 
   return (
     <>
@@ -946,11 +913,12 @@ function PromosView({
 }
 
 function PromoEditor({
-  db, promo, mutateDb, toast, onClose,
+  db, promo, savePromotion, deletePromotion, toast, onClose,
 }: {
   db: MulticolorData;
   promo: Promotion | null;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
+  savePromotion: (x: Promotion, oldTarget?: string) => void;
+  deletePromotion: (x: Promotion) => void;
   toast: (n: React.ReactNode) => void;
   onClose: () => void;
 }) {
@@ -971,26 +939,13 @@ function PromoEditor({
       ...base, name: name.trim() || "აქცია", target, type,
       value: parseFloat(value) || 1, from, to, active,
     };
-    mutateDb((d) => {
-      if (oldTarget !== next.target) {
-        const op = d.products.find((p) => p.id === oldTarget);
-        if (op) { op.salePct = undefined; op.tags = op.tags.filter((t) => t !== "sale"); }
-      }
-      applyPromoDraft(d, next);
-      const idx = d.promotions.findIndex((q) => q.id === next.id);
-      if (idx >= 0) d.promotions[idx] = next;
-      else d.promotions.unshift(next);
-    });
+    savePromotion(next, oldTarget);
     toast(<><span className="tick">✓</span> აქცია შენახულია</>);
     onClose();
   };
   const remove = () => {
     if (!promo) return;
-    mutateDb((d) => {
-      const op = d.products.find((p) => p.id === promo.target);
-      if (op) { op.salePct = undefined; op.tags = op.tags.filter((t) => t !== "sale"); }
-      d.promotions = d.promotions.filter((q) => q.id !== promo.id);
-    });
+    deletePromotion(promo);
     onClose();
   };
 
@@ -1028,11 +983,11 @@ function PromoEditor({
 }
 
 function HeroEditor({
-  db, index, mutateDb, toast, onClose,
+  db, index, updateHero, toast, onClose,
 }: {
   db: MulticolorData;
   index: number;
-  mutateDb: (fn: (d: MulticolorData) => void) => void;
+  updateHero: (index: number, slide: HeroSlide) => void;
   toast: (n: React.ReactNode) => void;
   onClose: () => void;
 }) {
@@ -1044,13 +999,13 @@ function HeroEditor({
   const [link, setLink] = useState(h.link);
 
   const save = () => {
-    mutateDb((d) => {
-      const slide = d.hero[index];
-      slide.kicker = kicker.trim();
-      slide.title = title.trim() || slide.title;
-      slide.sub = sub.trim();
-      slide.cta = cta.trim();
-      slide.link = link.trim();
+    updateHero(index, {
+      ...h,
+      kicker: kicker.trim(),
+      title: title.trim() || h.title,
+      sub: sub.trim(),
+      cta: cta.trim(),
+      link: link.trim(),
     });
     toast(<><span className="tick">✓</span> ჰერო განახლდა — ნახე მთავარი გვერდი</>);
     onClose();
