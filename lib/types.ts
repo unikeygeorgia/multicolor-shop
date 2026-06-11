@@ -77,6 +77,8 @@ export interface Product {
   usage?: string;
   /** extra info for the AI bot only — never shown on the storefront */
   aiInfo?: string;
+  /** hidden comment for the Unichat AI bot — never shown publicly */
+  aiComment?: string;
   /** uploaded product photo URL */
   image?: string;
   /** uploaded document/PDF URL */

@@ -14,6 +14,7 @@ import Link from "next/link";
 
 import { MC_DATA } from "@/lib/data";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { inBotCatalog, sendToUnichat, syncProductToUnichat, toUnichatProduct } from "@/lib/unichat";
 import {
   categoryToRow,
   heroToRow,
@@ -114,6 +115,8 @@ interface StoreValue {
   togglePromotion: (id: string, active: boolean) => void;
   updateHero: (index: number, slide: HeroSlide) => void;
   reload: () => void;
+  /** push the whole bot catalog to Unichat (replace_all); returns count sent */
+  syncAllToUnichat: () => number;
 
   toast: (node: ReactNode) => void;
 }
@@ -129,6 +132,8 @@ export function useStore(): StoreValue {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [db, setDb] = useState<MulticolorData>(MC_DATA);
+  const dbRef = useRef(db);
+  dbRef.current = db;
   const [orders, setOrders] = useState<Order[]>(MC_DATA.orders);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -321,6 +326,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return next;
     });
     upsertProductRow(p);
+    // Unichat catalog sync (fire-and-forget; no-op until configured)
+    syncProductToUnichat(p, dbRef.current.brands, dbRef.current.categories);
   }, [upsertProductRow]);
 
   const deleteProduct = useCallback((id: string) => {
@@ -328,6 +335,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (supabase) supabase.from("products").delete().eq("id", id).then(({ error }) => {
       if (error) console.error("product delete failed", error);
     });
+    sendToUnichat({ action: "delete", external_id: id });
+  }, []);
+
+  // full catalog push: "ყველა პროდუქტის გადაგზავნა Unichat-ში"
+  const syncAllToUnichat = useCallback(() => {
+    const list = dbRef.current.products
+      .filter(inBotCatalog)
+      .map((p) => toUnichatProduct(p, dbRef.current.brands, dbRef.current.categories));
+    sendToUnichat({ action: "replace_all", products: list });
+    return list.length;
   }, []);
 
   const upsertBrand = useCallback((b: Brand) => {
@@ -532,6 +549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       togglePromotion,
       updateHero,
       reload,
+      syncAllToUnichat,
       toast,
     }),
     [
@@ -539,7 +557,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToCart, quickAdd, addBundle, updateCartQty, removeCartLine, clearCart,
       orders, pushOrder, setOrderStatus, upsertProduct, deleteProduct, upsertBrand,
       deleteBrand, updateCategory, upsertCategory, deleteCategory, savePromotion, deletePromotion, togglePromotion,
-      updateHero, reload, toast,
+      updateHero, reload, syncAllToUnichat, toast,
     ]
   );
 

@@ -53,6 +53,7 @@ create table if not exists products (
   descr     text,
   usage     text,
   ai_info   text,
+  ai_comment text,                                  -- hidden comment for the Unichat AI bot (never public)
   slug      text unique,
   image     text,                                   -- product photo URL (Supabase Storage)
   document  text,                                   -- attached doc/PDF URL (Supabase Storage)
@@ -75,6 +76,13 @@ alter table products add column if not exists image    text;
 alter table products add column if not exists document text;
 alter table products add column if not exists visible  boolean not null default true;
 alter table products add column if not exists in_ai    boolean not null default true;
+alter table products add column if not exists ai_comment text;
+
+-- Unichat catalog sync (sender side) uses these server-only env vars (Vercel):
+--   UNICHAT_CATALOG_URL      (POST endpoint)
+--   UNICHAT_CATALOG_API_KEY  (Bearer token)
+--   NEXT_PUBLIC_SITE_URL     (optional, for product url; default https://multicolor.ge)
+-- When URL/KEY are empty the sync is a no-op (see app/api/unichat/sync/route.ts).
 
 -- shared favorite-colour library used by the admin colour picker
 -- (uuid id PK so colours can be renamed/duplicated and share a hex)

@@ -415,6 +415,11 @@ function SettingsView({
   settings: AppSettings;
   updateSetting: (key: "prices_hidden" | "commerce_enabled" | "stock_enabled", value: boolean) => void;
 }) {
+  const { syncAllToUnichat, toast } = useStore();
+  const pushAll = () => {
+    const n = syncAllToUnichat();
+    toast(<><span className="tick">✓</span> {n} პროდუქტი გაიგზავნა Unichat-ში (თუ ინტეგრაცია ჩართულია)</>);
+  };
   return (
     <>
       <div className="adm-head">
@@ -472,6 +477,16 @@ function SettingsView({
             <span />
           </label>
         </div>
+      </div>
+
+      <div className="acard pad" style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <b style={{ fontSize: 14 }}>Unichat AI ბოტი — კატალოგის სინქი</b>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, maxWidth: 460 }}>
+            პროდუქტის შენახვა/წაშლა ავტომატურად ეგზავნება Unichat-ს (თუ ინტეგრაცია ჩართულია). ღილაკი „ყველა გადაგზავნა“ ერთიანად აახლებს ბოტის კატალოგს — replace_all ძველ, ამოღებულ პროდუქტებსაც წაშლის.
+          </p>
+        </div>
+        <button className="btn sm" onClick={pushAll}>ყველა პროდუქტის გადაგზავნა Unichat-ში</button>
       </div>
     </>
   );
@@ -1300,6 +1315,7 @@ function ProductEditor({
   const [desc, setDesc] = useState(base.desc || "");
   const [usage, setUsage] = useState(base.usage || "");
   const [aiInfo, setAiInfo] = useState(base.aiInfo || "");
+  const [aiComment, setAiComment] = useState(base.aiComment || "");
   const [image, setImage] = useState(base.image || "");
   const [docUrl, setDocUrl] = useState(base.document || "");
   const [busyDoc, setBusyDoc] = useState(false);
@@ -1359,6 +1375,7 @@ function ProductEditor({
       desc: desc.trim(),
       usage: usage.trim() || undefined,
       aiInfo: aiInfo.trim() || undefined,
+      aiComment: aiComment.trim() || undefined,
       image: image || undefined,
       document: docUrl || undefined,
       visible, inAi,
@@ -1513,6 +1530,8 @@ function ProductEditor({
             <label className="tgl"><input type="checkbox" checked={inAi} onChange={(e) => setInAi(e.target.checked)} /><span /></label></div>
           <div className="field" style={{ marginTop: 12 }}><label>AI ბოტის ინსტრუქცია</label>
             <textarea value={aiInfo} onChange={(e) => setAiInfo(e.target.value)} placeholder="ტექნიკური დეტალები, ხშირი კითხვები…" style={{ minHeight: 80 }} /></div>
+          <div className="field"><label>კომენტარი AI ბოტისთვის (საიტზე არ ჩანს)</label>
+            <textarea value={aiComment} onChange={(e) => setAiComment(e.target.value)} placeholder="ფარული ცოდნა Unichat ბოტისთვის — მაგ. რეკომენდაციები, შეზღუდვები, ფასდაკლების პირობები…" style={{ minHeight: 80 }} /></div>
         </section>
       </div>
       <div className="dr-foot">
