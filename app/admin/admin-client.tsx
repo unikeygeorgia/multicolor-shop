@@ -9,6 +9,8 @@ import { brandLogoSrc } from "@/lib/brand-logos";
 import { supabase } from "@/lib/supabase";
 import { useStore } from "@/components/store-provider";
 import { useAuth } from "@/components/auth-provider";
+import { ColorField } from "@/components/ColorPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import type {
   AppSettings,
   Brand,
@@ -1285,8 +1287,8 @@ function ProductEditor({
   const [aiInfo, setAiInfo] = useState(base.aiInfo || "");
   const [image, setImage] = useState(base.image || "");
   const [docUrl, setDocUrl] = useState(base.document || "");
-  const [busyImg, setBusyImg] = useState(false);
   const [busyDoc, setBusyDoc] = useState(false);
+  const [nameErr, setNameErr] = useState(false);
 
   const isTools = rootCatId(db.categories, cat) === "tools";
 
@@ -1300,21 +1302,6 @@ function ProductEditor({
     (base.colors || []).map((c) => ({ h: c.h, n: c.n }))
   );
 
-  /* shared colour library (favourites) */
-  const [lib, setLib] = useState<{ hex: string; name: string }[]>([]);
-  useEffect(() => {
-    if (supabase)
-      supabase.from("color_library").select("*").order("created_at").then(({ data }) => {
-        if (data) setLib((data as { hex: string; name: string | null }[]).map((r) => ({ hex: r.hex, name: r.name || "" })));
-      });
-  }, []);
-  const saveToLib = async (hex: string, nm: string) => {
-    if (!supabase) return;
-    await supabase.from("color_library").upsert({ hex, name: nm || null });
-    setLib((l) => [...l.filter((x) => x.hex !== hex), { hex, name: nm || "" }]);
-    toast(<><span className="tick">✓</span> ფერი დაემატა ბიბლიოთეკას</>);
-  };
-
   const uploadFile = async (file: File, kind: "photo" | "doc"): Promise<string | null> => {
     if (!supabase) { toast(<>Storage არ არის ხელმისაწვდომი</>); return null; }
     const ext = (file.name.split(".").pop() || "bin").toLowerCase();
@@ -1323,18 +1310,20 @@ function ProductEditor({
     if (error) { toast(<>ატვირთვა ვერ მოხერხდა: {error.message}</>); return null; }
     return supabase.storage.from("product-media").getPublicUrl(path).data.publicUrl;
   };
-  const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    setBusyImg(true); const url = await uploadFile(f, "photo"); setBusyImg(false);
-    if (url) setImage(url);
-  };
   const onPickDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
     setBusyDoc(true); const url = await uploadFile(f, "doc"); setBusyDoc(false);
     if (url) setDocUrl(url);
   };
 
+  const prevPrice = (() => {
+    const rows = isTools ? sizes : vols;
+    const ps = rows.map((r) => parseFloat(r.p)).filter((x) => x > 0);
+    return ps.length ? Math.min(...ps) : 0;
+  })();
+
   const save = () => {
+    if (!name.trim()) { setNameErr(true); return; }
     const tools = rootCatId(db.categories, cat) === "tools";
     let outSizes: Product["sizes"];
     if (tools) {
@@ -1348,7 +1337,7 @@ function ProductEditor({
 
     const next: Product = {
       ...base,
-      name: name.trim() || "უსახელო პროდუქტი",
+      name: name.trim(),
       subtitle: subtitle.trim() || undefined,
       slug: (slug.trim() ? slugify(slug) : slugify(name.trim())) || base.slug,
       brand, cat,
@@ -1381,92 +1370,95 @@ function ProductEditor({
     <>
       <DrawerHead title={isNew ? "ახალი პროდუქტი" : "პროდუქტის რედაქტირება"} onClose={onClose} />
       <div className="dr-body">
-        <div className="pe-toggles">
-          <div className="pe-tg">
-            <div><b>ჩანდეს საიტზე</b><i>გამორთვისას პროდუქტი დაიმალება მაღაზიაში</i></div>
-            <label className="tgl"><input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} /><span /></label>
+        {/* live preview */}
+        <div className="pe2-preview">
+          <span className="pe2-prevThumb" style={image ? { backgroundImage: `url(${image})` } : { background: "#c9c9cf" }}>
+            {!image && (name.trim()[0] || "?")}
+          </span>
+          <div className="pe2-prevInfo">
+            <div className="pe2-prevName">{name.trim() || "პროდუქტის სახელი"}</div>
+            <div className="pe2-prevMeta">
+              {db.brands.find((b) => b.id === brand)?.name || ""}
+              {cat ? " · " + (db.categories.find((c) => c.id === cat)?.name || "") : ""}
+            </div>
           </div>
-          <div className="pe-tg">
-            <div><b>AI ბოტის ცოდნის ბაზაში</b><i>გამორთვისას ბოტი ვერ გამოიყენებს ამ პროდუქტს</i></div>
-            <label className="tgl"><input type="checkbox" checked={inAi} onChange={(e) => setInAi(e.target.checked)} /><span /></label>
-          </div>
+          <div className="pe2-prevPrice">{prevPrice > 0 ? prevPrice + " ₾" : "—"}</div>
         </div>
 
-        <div className="field"><label>დასახელება *</label><input value={name} onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)); }} placeholder="მაგ. ცემენტის ჰიდროიზოლაცია" /></div>
-        <div className="field"><label>ქვესათაური</label><input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="მაგ. აბაზანისა & სამზარეულოს ჰიდროიზოლაცია" /></div>
-        <div className="field">
-          <label>ლინკი (slug) — ავტომატური ლათინურად</label>
-          <input value={slug} onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }} placeholder="latin-slug" />
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>მისამართი: /product?slug={slug || "…"}</span>
-        </div>
-
-        <div className="field"><label>ბრენდი</label>
-          <div className="brand-pick">
-            {db.brands.map((b) => (
-              <button type="button" key={b.id} className={`bpick${brand === b.id ? " on" : ""}`} onClick={() => setBrand(b.id)}>
-                {brandLogoSrc(b)
-                  ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={brandLogoSrc(b)} alt={b.name} />)
-                  : <span className="bp-letter" style={{ background: b.tint }}>{b.name[0]}</span>}
-                <span className="bp-nm">{b.name}</span>
-              </button>
-            ))}
+        {/* 1 — basic */}
+        <section className="pe2-section">
+          <div className="pe2-secHead">ძირითადი ინფორმაცია</div>
+          <div className="field">
+            <label>დასახელება <span className="pe2-req">*</span></label>
+            <input className={nameErr ? "pe2-errInput" : ""} value={name}
+              onChange={(e) => { setName(e.target.value); setNameErr(false); if (!slugTouched) setSlug(slugify(e.target.value)); }}
+              placeholder="მაგ. ცემენტის ჰიდროიზოლაცია" />
+            {nameErr && <div className="pe2-errMsg">დასახელება სავალდებულოა</div>}
           </div>
-        </div>
-
-        <div className="field"><label>კატეგორია</label>
-          <select value={cat} onChange={(e) => setCat(e.target.value)}>
-            {flatCatTree(db.categories).map(({ c, depth }) => (
-              <option key={c.id} value={c.id}>{`${"  ".repeat(depth)}${depth ? "└ " : ""}${c.name}`}</option>
-            ))}
-          </select>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>{isTools ? "ინსტრუმენტი → იყენებს „ზომებს“" : "იყენებს „მოცულობას + ფერებს“"}</span>
-        </div>
-
-        <div className="frow2">
-          <div className="field"><label>ფოტო</label>
-            {image && (
-              <div className="up-prev">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image} alt="" />
-                <button type="button" className="del" title="მოშორება" onClick={() => setImage("")}>×</button>
-              </div>
-            )}
-            <label className="up-btn">{busyImg ? "იტვირთება…" : image ? "ფოტოს შეცვლა" : "ფოტოს ატვირთვა"}
-              <input type="file" accept="image/*" hidden onChange={onPickImage} />
-            </label>
+          <div className="field"><label>ქვესათაური</label>
+            <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="მაგ. აბაზანისა & სამზარეულოს ჰიდროიზოლაცია" /></div>
+          <div className="field"><label>ბრენდი</label>
+            <div className="brand-pick">
+              {db.brands.map((b) => (
+                <button type="button" key={b.id} className={`bpick${brand === b.id ? " on" : ""}`} onClick={() => setBrand(b.id)}>
+                  {brandLogoSrc(b)
+                    ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={brandLogoSrc(b)} alt={b.name} />)
+                    : <span className="bp-letter" style={{ background: b.tint }}>{b.name[0]}</span>}
+                  <span className="bp-nm">{b.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="field"><label>დოკუმენტი (PDF / კატალოგი)</label>
-            {docUrl && (
-              <div className="up-doc">
-                <a href={docUrl} target="_blank" rel="noreferrer">📄 ფაილის ნახვა</a>
-                <button type="button" className="rm-link" onClick={() => setDocUrl("")}>მოშორება</button>
-              </div>
-            )}
-            <label className="up-btn">{busyDoc ? "იტვირთება…" : docUrl ? "ფაილის შეცვლა" : "დოკუმენტის ატვირთვა"}
-              <input type="file" accept=".pdf,application/pdf,.doc,.docx,image/*" hidden onChange={onPickDoc} />
-            </label>
+          <div className="field"><label>კატეგორია</label>
+            <select value={cat} onChange={(e) => setCat(e.target.value)}>
+              {flatCatTree(db.categories).map(({ c, depth }) => (
+                <option key={c.id} value={c.id}>{`${"  ".repeat(depth)}${depth ? "└ " : ""}${c.name}`}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>{isTools ? "ინსტრუმენტი → იყენებს „ზომებს“" : "იყენებს „მოცულობას + ფერებს“"}</span>
           </div>
-        </div>
+          <div className="field"><label>ლინკი (slug)</label>
+            <input value={slug} onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }} placeholder="latin-slug" /></div>
+        </section>
 
-        <div className="field"><label>აღწერა</label><textarea style={{ minHeight: 70 }} value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
-        <div className="field"><label>გამოყენების წესი</label><textarea style={{ minHeight: 70 }} value={usage} onChange={(e) => setUsage(e.target.value)} placeholder="როგორ გამოიყენება პროდუქტი…" /></div>
-
-        {isTools ? (
-          <div className="fset">
-            <div className="fset-h"><b>ზომები (ფასი თითო ვარიანტზე)</b></div>
-            {sizes.map((r, i) => (
-              <div className="vrow" key={i} style={{ gridTemplateColumns: "1fr 120px 30px" }}>
-                <input placeholder="ზომა (მაგ. 25მმ)" value={r.l} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, l: e.target.value } : x))} />
-                <input type="number" step="0.01" min="0" placeholder="ფასი ₾" value={r.p} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, p: e.target.value } : x))} />
-                <button className="del" type="button" title="წაშლა" onClick={() => setSizes((s) => s.filter((_, j) => j !== i))}>×</button>
-              </div>
-            ))}
-            <button className="addrow" type="button" onClick={() => setSizes((s) => [...s, { l: "", p: "" }])}>+ ზომის დამატება</button>
+        {/* 2 — media */}
+        <section className="pe2-section">
+          <div className="pe2-secHead">მედია</div>
+          <div className="pe2-media">
+            <ImagePicker value={image} onChange={setImage}
+              onUpload={async (blob) => uploadFile(new File([blob], "image.png", { type: blob.type || "image/png" }), "photo")} />
+            <div className="field"><label>დოკუმენტი (PDF / კატალოგი)</label>
+              {docUrl && (<div className="up-doc"><a href={docUrl} target="_blank" rel="noreferrer">📄 ფაილის ნახვა</a>
+                <button type="button" className="rm-link" onClick={() => setDocUrl("")}>მოშორება</button></div>)}
+              <label className="up-btn">{busyDoc ? "იტვირთება…" : docUrl ? "ფაილის შეცვლა" : "დოკუმენტის ატვირთვა"}
+                <input type="file" accept=".pdf,application/pdf,.doc,.docx,image/*" hidden onChange={onPickDoc} /></label>
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="fset">
-              <div className="fset-h"><b>მოცულობა / წონა (ფასი თითო ვარიანტზე)</b></div>
+        </section>
+
+        {/* 3 — text */}
+        <section className="pe2-section">
+          <div className="pe2-secHead">ტექსტი</div>
+          <div className="field"><label>აღწერა</label><textarea style={{ minHeight: 70 }} value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+          <div className="field"><label>გამოყენების წესი</label><textarea style={{ minHeight: 70 }} value={usage} onChange={(e) => setUsage(e.target.value)} placeholder="როგორ გამოიყენება პროდუქტი…" /></div>
+        </section>
+
+        {/* 4 — variants */}
+        <section className="pe2-section">
+          <div className="pe2-secHead">{isTools ? "ზომები" : "მოცულობა / წონა"} <small>ფასი თითო ვარიანტზე</small></div>
+          {isTools ? (
+            <>
+              {sizes.map((r, i) => (
+                <div className="vrow" key={i} style={{ gridTemplateColumns: "1fr 120px 30px" }}>
+                  <input placeholder="ზომა (მაგ. 25მმ)" value={r.l} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, l: e.target.value } : x))} />
+                  <input type="number" step="0.01" min="0" placeholder="ფასი ₾" value={r.p} onChange={(e) => setSizes((s) => s.map((x, j) => j === i ? { ...x, p: e.target.value } : x))} />
+                  <button className="del" type="button" title="წაშლა" onClick={() => setSizes((s) => s.filter((_, j) => j !== i))}>×</button>
+                </div>
+              ))}
+              <button className="addrow" type="button" onClick={() => setSizes((s) => [...s, { l: "", p: "" }])}>+ ზომის დამატება</button>
+            </>
+          ) : (
+            <>
               {vols.map((r, i) => (
                 <div className="vrow" key={i} style={{ gridTemplateColumns: "1fr 86px 110px 30px" }}>
                   <input placeholder="რაოდენობა (მაგ. 5)" value={r.v} onChange={(e) => setVols((s) => s.map((x, j) => j === i ? { ...x, v: e.target.value } : x))} />
@@ -1478,43 +1470,35 @@ function ProductEditor({
                 </div>
               ))}
               <button className="addrow" type="button" onClick={() => setVols((s) => [...s, { v: "", u: "კგ", p: "" }])}>+ მოცულობის დამატება</button>
-            </div>
+            </>
+          )}
+        </section>
 
-            <div className="fset">
-              <div className="fset-h"><b>ფერები</b></div>
-              {lib.length > 0 && (
-                <div className="lib-swatches">
-                  <span className="dim">ბიბლიოთეკიდან:</span>
-                  {lib.map((c) => (
-                    <button type="button" key={c.hex} className="lib-sw" title={c.name || c.hex} style={{ background: c.hex }} onClick={() => setColors((s) => [...s, { h: c.hex, n: c.name }])} />
-                  ))}
-                </div>
-              )}
-              {colors.map((r, i) => (
-                <div className="vrow color-row" key={i} style={{ gridTemplateColumns: "46px 1fr 34px 30px" }}>
-                  <input type="color" value={r.h} onChange={(e) => setColors((s) => s.map((x, j) => j === i ? { ...x, h: e.target.value } : x))} />
-                  <input placeholder="ფერის სახელი" value={r.n} onChange={(e) => setColors((s) => s.map((x, j) => j === i ? { ...x, n: e.target.value } : x))} />
-                  <button type="button" className="star" title="ბიბლიოთეკაში დამატება" onClick={() => saveToLib(r.h, r.n)}>★</button>
-                  <button className="del" type="button" title="წაშლა" onClick={() => setColors((s) => s.filter((_, j) => j !== i))}>×</button>
-                </div>
-              ))}
-              <button className="addrow" type="button" onClick={() => setColors((s) => [...s, { h: "#cccccc", n: "" }])}>+ ფერის დამატება</button>
-            </div>
-          </>
+        {/* 5 — colours */}
+        {!isTools && (
+          <section className="pe2-section">
+            <div className="pe2-secHead">ფერები</div>
+            {colors.map((r, i) => (
+              <div className="pe2-colorRow" key={i}>
+                <ColorField value={r.h} onChange={(hex) => setColors((s) => s.map((x, j) => j === i ? { ...x, h: hex } : x))} />
+                <input placeholder="ფერის სახელი" value={r.n} onChange={(e) => setColors((s) => s.map((x, j) => j === i ? { ...x, n: e.target.value } : x))} />
+                <button className="del" type="button" title="წაშლა" onClick={() => setColors((s) => s.filter((_, j) => j !== i))}>×</button>
+              </div>
+            ))}
+            <button className="addrow" type="button" onClick={() => setColors((s) => [...s, { h: "#cccccc", n: "" }])}>+ ფერის დამატება</button>
+          </section>
         )}
 
-        <div className="fset">
-          <div className="fset-h"><b>AI ბოტის ინსტრუქცია</b></div>
-          <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-            ინფორმაცია მხოლოდ AI ბოტისთვის — საიტზე არ ჩანს, ბოტი იყენებს კლიენტის კითხვებზე პასუხისთვის.
-          </p>
-          <textarea
-            value={aiInfo}
-            onChange={(e) => setAiInfo(e.target.value)}
-            placeholder="მაგ. ტექნიკური დეტალები, ხშირი კითხვები, რჩევები, შეზღუდვები…"
-            style={{ minHeight: 90, width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", fontSize: 13 }}
-          />
-        </div>
+        {/* 6 — publish & AI */}
+        <section className="pe2-section">
+          <div className="pe2-secHead">გამოქვეყნება & AI</div>
+          <div className="pe2-pub"><div><b>ჩანდეს საიტზე</b><i>გამორთვისას პროდუქტი დაიმალება მაღაზიაში</i></div>
+            <label className="tgl"><input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} /><span /></label></div>
+          <div className="pe2-pub"><div><b>AI ბოტის ცოდნის ბაზაში</b><i>ბოტი იყენებს ამ პროდუქტს კითხვებზე პასუხისთვის</i></div>
+            <label className="tgl"><input type="checkbox" checked={inAi} onChange={(e) => setInAi(e.target.checked)} /><span /></label></div>
+          <div className="field" style={{ marginTop: 12 }}><label>AI ბოტის ინსტრუქცია</label>
+            <textarea value={aiInfo} onChange={(e) => setAiInfo(e.target.value)} placeholder="ტექნიკური დეტალები, ხშირი კითხვები…" style={{ minHeight: 80 }} /></div>
+        </section>
       </div>
       <div className="dr-foot">
         {!isNew && <button className="btn-line" style={{ color: "var(--sale)", borderColor: "var(--sale)" }} onClick={remove}>წაშლა</button>}

@@ -2448,3 +2448,39 @@ body.admin { background: #f4f3f0; }
 .mcx-app .togLbl { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
 @media (max-width: 920px) { .mcx-app .prodLayout { grid-template-columns: 1fr; } }
 .mcx-app .pbtable.no-stock .ptHead, .mcx-app .pbtable.no-stock .prow { grid-template-columns: 34px minmax(160px, 1fr) minmax(110px, 160px) 84px 52px 44px 84px; }
+
+/* ============================================================
+   product-editor.css — styles for the redesigned "Add / edit product"
+   drawer. Append to app/globals.css.
+   (ColorPicker.tsx and ImagePicker.tsx inject their own styles.)
+   ============================================================ */
+
+/* live preview bar */
+.pe2-preview { display:flex; align-items:center; gap:13px; padding:13px 16px; background:#fff; border:1px solid #ececec; border-radius:14px; margin-bottom:14px; }
+.pe2-prevThumb { width:46px; height:46px; border-radius:12px; flex-shrink:0; display:grid; place-items:center; font-weight:700; font-size:18px; color:#fff; background:#c9c9cf center/cover no-repeat; }
+.pe2-prevInfo { flex:1; min-width:0; }
+.pe2-prevName { font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pe2-prevMeta { font-size:12px; color:#8a8a8a; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pe2-prevPrice { font-size:16px; font-weight:700; white-space:nowrap; }
+
+/* section cards */
+.pe2-section { background:#fff; border:1px solid #ececec; border-radius:14px; padding:16px; margin-bottom:14px; }
+.pe2-secHead { font-size:13px; font-weight:700; margin-bottom:13px; display:flex; align-items:center; gap:8px; }
+.pe2-secHead small { font-size:11.5px; font-weight:500; color:#9a9a9a; }
+
+/* required field + inline error */
+.pe2-req { color:#e23b3b; margin-left:2px; }
+.pe2-err input, input.pe2-errInput { border-color:#e23b3b !important; box-shadow:0 0 0 3px rgba(226,59,59,.16) !important; }
+.pe2-errMsg { font-size:12px; color:#e23b3b; font-weight:600; margin-top:5px; }
+
+/* colour row using <ColorField> */
+.pe2-colorRow { display:grid; grid-template-columns:46px 1fr 30px; gap:8px; align-items:center; margin-bottom:7px; }
+
+/* publish toggles row (reuse your existing .tgl switch) */
+.pe2-pub { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid #ececec; }
+.pe2-pub:first-of-type { padding-top:0; }
+.pe2-pub b { font-size:13.5px; display:block; }
+.pe2-pub i { font-size:12px; color:#9a9a9a; font-style:normal; }
+
+/* media row: image picker + document side by side */
+.pe2-media { display:grid; grid-template-columns:1fr; gap:14px; }

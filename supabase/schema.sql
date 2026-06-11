@@ -76,12 +76,16 @@ alter table products add column if not exists document text;
 alter table products add column if not exists visible  boolean not null default true;
 alter table products add column if not exists in_ai    boolean not null default true;
 
--- shared favorite-colour library used by the admin product editor
+-- shared favorite-colour library used by the admin colour picker
+-- (uuid id PK so colours can be renamed/duplicated and share a hex)
 create table if not exists color_library (
-  hex        text primary key,
+  id         uuid primary key default gen_random_uuid(),
+  hex        text,
   name       text,
   created_at timestamptz not null default now()
 );
+-- migration for projects created with the old hex PK:
+alter table color_library add column if not exists id uuid default gen_random_uuid();
 
 -- storage bucket "product-media" (public read, admin write) holds photos + documents.
 
