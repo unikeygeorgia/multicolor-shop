@@ -12,6 +12,7 @@ export interface UnichatProduct {
   /** stable product id — never changes on edit */
   external_id: string;
   title: string;
+  subtitle?: string;
   description: string;
   attributes: Record<string, string>;
   price: number;
@@ -62,7 +63,8 @@ export function toUnichatProduct(p: Product, brands: Brand[], cats: Category[]):
   return {
     external_id: p.id,
     title: p.name,
-    description: [p.subtitle, p.desc, p.usage].map(clean).filter(Boolean).join("\n\n"),
+    subtitle: clean(p.subtitle) || undefined,
+    description: [p.desc, p.usage].map(clean).filter(Boolean).join("\n\n"),
     attributes,
     price,
     currency: "GEL",

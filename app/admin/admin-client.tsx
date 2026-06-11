@@ -415,10 +415,21 @@ function SettingsView({
   settings: AppSettings;
   updateSetting: (key: "prices_hidden" | "commerce_enabled" | "stock_enabled", value: boolean) => void;
 }) {
-  const { syncAllToUnichat, toast } = useStore();
-  const pushAll = () => {
-    const n = syncAllToUnichat();
-    toast(<><span className="tick">✓</span> {n} პროდუქტი გაიგზავნა Unichat-ში (თუ ინტეგრაცია ჩართულია)</>);
+  const { toast } = useStore();
+  const [syncing, setSyncing] = useState(false);
+  const pushAll = async () => {
+    setSyncing(true);
+    try {
+      const r = await fetch("/api/unichat/sync-all", { method: "POST" });
+      const d = await r.json();
+      if (d.skipped) toast(<>Unichat ჯერ არ არის კონფიგურირებული (env ცარიელია)</>);
+      else if (d.ok) toast(<><span className="tick">✓</span> Unichat: {d.upserted ?? d.sent} განახლდა{d.deleted ? `, ${d.deleted} წაიშალა` : ""}</>);
+      else toast(<>გაგზავნა ვერ მოხერხდა{d.status ? ` (HTTP ${d.status})` : ""}</>);
+    } catch {
+      toast(<>გაგზავნა ვერ მოხერხდა — ქსელის შეცდომა</>);
+    } finally {
+      setSyncing(false);
+    }
   };
   return (
     <>
@@ -486,7 +497,7 @@ function SettingsView({
             პროდუქტის შენახვა/წაშლა ავტომატურად ეგზავნება Unichat-ს (თუ ინტეგრაცია ჩართულია). ღილაკი „ყველა გადაგზავნა“ ერთიანად აახლებს ბოტის კატალოგს — replace_all ძველ, ამოღებულ პროდუქტებსაც წაშლის.
           </p>
         </div>
-        <button className="btn sm" onClick={pushAll}>ყველა პროდუქტის გადაგზავნა Unichat-ში</button>
+        <button className="btn sm" onClick={pushAll} disabled={syncing}>{syncing ? "იგზავნება…" : "ყველა პროდუქტის გადაგზავნა Unichat-ში"}</button>
       </div>
     </>
   );
