@@ -3,14 +3,14 @@
 import Link from "next/link";
 
 import { useStore } from "@/components/store-provider";
-import { brandLogo } from "@/lib/brand-logos";
+import { brandLogoSrc } from "@/lib/brand-logos";
 
 export function BrandStrip() {
   const { db } = useStore();
   return (
     <div className="brand-strip" id="brand-strip">
       {db.brands.map((b) => {
-        const logo = brandLogo(b.id);
+        const logo = brandLogoSrc(b);
         return (
           <Link key={b.id} className="brand-tile" href={`/brand?b=${b.id}`}>
             {logo ? (

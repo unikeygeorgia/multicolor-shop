@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { fmt, minPrice, prodImg, salePrice } from "@/lib/utils";
 import { slugify } from "@/lib/slug";
-import { brandLogo } from "@/lib/brand-logos";
+import { brandLogoSrc } from "@/lib/brand-logos";
 import { supabase } from "@/lib/supabase";
 import { useStore } from "@/components/store-provider";
 import { useAuth } from "@/components/auth-provider";
@@ -1190,8 +1190,8 @@ function ProductEditor({
           <div className="brand-pick">
             {db.brands.map((b) => (
               <button type="button" key={b.id} className={`bpick${brand === b.id ? " on" : ""}`} onClick={() => setBrand(b.id)}>
-                {brandLogo(b.id)
-                  ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={brandLogo(b.id)} alt={b.name} />)
+                {brandLogoSrc(b)
+                  ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={brandLogoSrc(b)} alt={b.name} />)
                   : <span className="bp-letter" style={{ background: b.tint }}>{b.name[0]}</span>}
                 <span className="bp-nm">{b.name}</span>
               </button>
@@ -1322,10 +1322,10 @@ function BrandsView({ db, onEdit }: { db: MulticolorData; onEdit: (id: string | 
           const n = db.products.filter((p) => p.brand === b.id).length;
           return (
             <div className="brand-card rowlink" key={b.id} style={{ cursor: "pointer" }} onClick={() => onEdit(b.id)}>
-              {brandLogo(b.id) ? (
+              {brandLogoSrc(b) ? (
                 <span className="mk logo-box">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={brandLogo(b.id)} alt={b.name} />
+                  <img src={brandLogoSrc(b)} alt={b.name} />
                 </span>
               ) : (
                 <span className="mk" style={{ background: b.tint }}>{b.name[0]}</span>
@@ -1357,10 +1357,22 @@ function BrandEditor({
   const [country, setCountry] = useState(base.country);
   const [tagline, setTagline] = useState(base.tagline);
   const [story, setStory] = useState(base.story);
-  const [tint, setTint] = useState(base.tint);
+  const [logo, setLogo] = useState<string>(brandLogoSrc(base) || "");
+  const [busyLogo, setBusyLogo] = useState(false);
+
+  const onPickLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f || !supabase) return;
+    setBusyLogo(true);
+    const ext = (f.name.split(".").pop() || "png").toLowerCase();
+    const path = `brands/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const { error } = await supabase.storage.from("product-media").upload(path, f, { upsert: false });
+    setBusyLogo(false);
+    if (error) { alert("ატვირთვა ვერ მოხერხდა: " + error.message); return; }
+    setLogo(supabase.storage.from("product-media").getPublicUrl(path).data.publicUrl);
+  };
 
   const save = () => {
-    const next: Brand = { ...base, name: name.trim() || base.name || "ბრენდი", country: country.trim(), tagline: tagline.trim(), story: story.trim(), tint };
+    const next: Brand = { ...base, name: name.trim() || base.name || "ბრენდი", country: country.trim(), tagline: tagline.trim(), story: story.trim(), tint: base.tint || "#46698c", logo: logo || null };
     upsertBrand(next);
     onClose();
   };
@@ -1382,10 +1394,18 @@ function BrandEditor({
         </div>
         <div className="field"><label>ტეგლაინი</label><input value={tagline} onChange={(e) => setTagline(e.target.value)} /></div>
         <div className="field"><label>ისტორია (ბრენდის გვერდზე)</label><textarea value={story} onChange={(e) => setStory(e.target.value)} /></div>
-        <div className="field"><label>ბრენდის ფერი (ლოგო-მარკა და ბანერი)</label>
-          <input type="color" value={tint} onChange={(e) => setTint(e.target.value)} style={{ height: 44, padding: 3, border: "1px solid var(--line)", borderRadius: 10, width: 90, cursor: "pointer" }} />
+        <div className="field"><label>ლოგო</label>
+          {logo && (
+            <div className="up-prev" style={{ background: "#fff" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logo} alt="ლოგო" />
+              <button type="button" className="del" title="მოშორება" onClick={() => setLogo("")}>×</button>
+            </div>
+          )}
+          <label className="up-btn">{busyLogo ? "იტვირთება…" : logo ? "ლოგოს შეცვლა" : "ლოგოს ატვირთვა"}
+            <input type="file" accept="image/*,.svg" hidden onChange={onPickLogo} />
+          </label>
         </div>
-        <p style={{ fontSize: 12, color: "var(--muted)" }}>ლოგო და ბანერი: რეალურ იმპლემენტაციაში აქ აიტვირთება ფაილები; დემოში მარკა გენერირდება ფერიდან.</p>
       </div>
       <div className="dr-foot">
         {!isNew && <button className="btn-line" style={{ color: "var(--sale)", borderColor: "var(--sale)" }} onClick={remove}>წაშლა</button>}

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { ph } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
-import { brandLogo } from "@/lib/brand-logos";
+import { brandLogoSrc } from "@/lib/brand-logos";
 
 export default function AboutPage() {
   const { db } = useStore();
@@ -62,7 +62,7 @@ export default function AboutPage() {
         </div>
         <div className="partner-row">
           {db.brands.map((b) => {
-            const logo = brandLogo(b.id);
+            const logo = brandLogoSrc(b);
             return (
               <Link key={b.id} className="partner" href={`/brand?b=${b.id}`}>
                 {logo ? (

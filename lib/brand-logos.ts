@@ -15,3 +15,8 @@ export const BRAND_LOGOS: Record<string, string> = {
 export function brandLogo(id: string): string | undefined {
   return BRAND_LOGOS[id];
 }
+
+/** Prefer the brand's uploaded logo, falling back to the vendored one by id. */
+export function brandLogoSrc(b: { id: string; logo?: string | null }): string | undefined {
+  return b.logo || BRAND_LOGOS[b.id];
+}

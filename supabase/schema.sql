@@ -22,8 +22,10 @@ create table if not exists brands (
   country text,
   tint    text,
   tagline text,
-  story   text
+  story   text,
+  logo    text                                       -- uploaded brand logo URL (Supabase Storage)
 );
+alter table brands add column if not exists logo text;
 
 create table if not exists categories (
   id        text primary key,

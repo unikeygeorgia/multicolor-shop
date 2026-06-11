@@ -9,6 +9,8 @@ export interface Brand {
   tint: string;
   tagline: string;
   story: string;
+  /** uploaded brand logo URL (falls back to the vendored logo by id) */
+  logo?: string | null;
 }
 
 export interface Category {

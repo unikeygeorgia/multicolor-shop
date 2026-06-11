@@ -10,7 +10,7 @@ import { useStore } from "@/components/store-provider";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icons";
 import { ChevronDownIcon } from "@/components/icons";
-import { brandLogo } from "@/lib/brand-logos";
+import { brandLogoSrc } from "@/lib/brand-logos";
 
 const STATUS_LABELS: Record<string, string> = {
   new: "ახალი",
@@ -217,7 +217,7 @@ export function ShopClient() {
         <summary>ბრენდი</summary>
         <div className="fbody">
           {db.brands.map((b) => {
-            const logo = brandLogo(b.id);
+            const logo = brandLogoSrc(b);
             return (
               <label className="frow brow" key={b.id}>
                 <input type="checkbox" checked={brands.includes(b.id)} onChange={() => setBrands((s) => toggle(s, b.id))} />
