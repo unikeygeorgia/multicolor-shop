@@ -2396,16 +2396,16 @@ body.admin { background: #f4f3f0; }
 .mcx-app .sortArrow.down { transform: rotate(-90deg); }
 .mcx-app .sortHead.is-active .sortArrow { opacity: 1; }
 
-.mcx-app .pthumb { width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; background: oklch(0.955 0.05 var(--hue)); background-image: repeating-linear-gradient(135deg, transparent 0 7px, oklch(0.5 0.12 var(--hue) / 0.06) 7px 8px); }
+.mcx-app .pthumb { width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; background: oklch(0.955 0.05 var(--hue)); background-image: repeating-linear-gradient(135deg, transparent 0 7px, oklch(0.5 0.12 var(--hue) / 0.06) 7px 8px); }
 .mcx-app.is-dark .pthumb { background: oklch(0.32 0.06 var(--hue)); }
 .mcx-app[data-coding="off"] .pthumb { background: var(--surface-3); background-image: none; }
 .mcx-app .thumbInit { font-weight: 700; font-size: 17px; color: oklch(0.48 0.14 var(--hue)); }
 .mcx-app.is-dark .thumbInit { color: oklch(0.82 0.1 var(--hue)); }
 .mcx-app[data-coding="off"] .thumbInit { color: var(--muted); }
-.mcx-app .pthumb--big { width: 100%; height: 100%; border-radius: 0; }
+.mcx-app .pthumb--big { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
 .mcx-app .pthumb--big .thumbInit { font-size: 40px; }
 .mcx-app .pthumb img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
-.mcx-app .pthumb--big img { border-radius: 0; }
+.mcx-app .pthumb--big img { position: absolute; inset: 0; border-radius: 0; }
 
 .mcx-app .pbinfo { min-width: 0; }
 .mcx-app .pname { font-size: 14.5px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2434,7 +2434,7 @@ body.admin { background: #f4f3f0; }
 .mcx-app .pbcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm); transition: transform .14s, box-shadow .14s, border-color .14s; }
 .mcx-app .pbcard:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .mcx-app .pbcard.is-sel { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent); }
-.mcx-app .pcardTop { position: relative; height: 132px; }
+.mcx-app .pcardTop { position: relative; height: 132px; overflow: hidden; }
 .mcx-app .pcardActions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; opacity: 0; transition: .14s; }
 .mcx-app .pbcard:hover .pcardActions { opacity: 1; }
 .mcx-app .pcardActions .iconBtn2 { background: var(--surface); border-color: var(--border); }
