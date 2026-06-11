@@ -13,6 +13,7 @@
    ============================================================ */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 
 /* ---------------- colour math ---------------- */
@@ -274,19 +275,35 @@ export function ColorPicker({ hex = "FF0AA5", onChange, onClose }: { hex?: strin
 /* ---------------- swatch field (use this in the product editor) ---------------- */
 export function ColorField({ value, onChange }: { value: string; onChange: (hex: string) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const PW = 268, PH = 430;
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect(); if (!r) return;
+    let left = r.left - PW - 10; if (left < 8) left = Math.min(window.innerWidth - PW - 8, r.right + 10);
+    const top = Math.max(8, Math.min(r.top, window.innerHeight - PH - 8));
+    setPos({ top, left });
+  };
   useEffect(() => {
-    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    if (open) document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    if (!open) return;
+    const onResize = () => place();
+    window.addEventListener("resize", onResize); window.addEventListener("scroll", onResize, true);
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("scroll", onResize, true); };
   }, [open]);
   const hex = normHex(value) || "CCCCCC";
   return (
-    <div className="cfWrap" ref={ref}>
-      <button type="button" className="cfSwatch" style={{ background: "#" + hex }} onClick={() => setOpen((o) => !o)} />
-      {open && <div className="cfPop"><ColorPicker hex={hex} onChange={(hx) => onChange("#" + hx)} onClose={() => setOpen(false)} /></div>}
+    <>
+      <button ref={btnRef} type="button" className="cfSwatch" style={{ background: "#" + hex }}
+        onClick={() => { if (open) { setOpen(false); } else { place(); setOpen(true); } }} />
       <ColorPickerStyles />
-    </div>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 2999 }} onMouseDown={() => setOpen(false)} />
+          <div style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 3000 }}>
+            <ColorPicker hex={hex} onChange={(hx) => onChange("#" + hx)} onClose={() => setOpen(false)} />
+          </div>
+        </>, document.body)}
+    </>
   );
 }
 
@@ -303,7 +320,7 @@ function ColorPickerStyles() {
 }
 
 const CP_CSS = `
-.cpPanel{ width:268px; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; position:relative; box-sizing:border-box; }
+.cpPanel{ width:268px; max-height:calc(100vh - 24px); overflow-y:auto; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; position:relative; box-sizing:border-box; }
 .cpPanel *{ box-sizing:border-box; }
 .cpHead{ display:flex; align-items:center; margin-bottom:14px; }
 .cpTitle{ font-size:13.5px; font-weight:700; }

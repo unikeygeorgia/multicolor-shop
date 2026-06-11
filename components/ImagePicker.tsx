@@ -11,6 +11,7 @@
    ============================================================ */
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const clamp = (n: number, a: number, b: number) => Math.min(b, Math.max(a, n));
 
@@ -175,17 +176,33 @@ export function ImageField({ value, onChange, onUpload }: { value?: string; onCh
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { ImageFieldStyles(); }, []);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const PW = 268, PH = 470;
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect(); if (!r) return;
+    let left = r.left - PW - 10; if (left < 8) left = Math.min(window.innerWidth - PW - 8, r.right + 10);
+    const top = Math.max(8, Math.min(r.top, window.innerHeight - PH - 8));
+    setPos({ top, left });
+  };
   useEffect(() => {
-    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    if (open) document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    if (!open) return;
+    const onResize = () => place();
+    window.addEventListener("resize", onResize); window.addEventListener("scroll", onResize, true);
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("scroll", onResize, true); };
   }, [open]);
   return (
     <div className="ifWrap" ref={ref}>
-      <button type="button" className={"ifTrigger" + (value ? " has" : "")} onClick={() => setOpen((o) => !o)}>
+      <button ref={btnRef} type="button" className={"ifTrigger" + (value ? " has" : "")} onClick={() => { if (open) { setOpen(false); } else { place(); setOpen(true); } }}>
         {value ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={value} alt="" />) : <span className="ifPlus">+ ფოტოს დამატება</span>}
       </button>
-      {open && <div className="ifPop"><ImagePicker value={value} onChange={onChange} onUpload={onUpload} onClose={() => setOpen(false)} /></div>}
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 2999 }} onMouseDown={() => setOpen(false)} />
+          <div style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 3000 }}>
+            <ImagePicker value={value} onChange={onChange} onUpload={onUpload} onClose={() => setOpen(false)} />
+          </div>
+        </>, document.body)}
     </div>
   );
 }
@@ -219,7 +236,7 @@ function ImagePickerStyles() {
 }
 
 const IP_CSS = `
-.ipPanel{ width:268px; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; box-sizing:border-box; }
+.ipPanel{ width:268px; max-height:calc(100vh - 24px); overflow-y:auto; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; box-sizing:border-box; }
 .ipPanel *{ box-sizing:border-box; }
 .ipHead{ display:flex; align-items:center; margin-bottom:14px; }
 .ipTitle{ font-size:13.5px; font-weight:700; margin-right:auto; }
