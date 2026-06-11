@@ -797,8 +797,14 @@ function PSwitch({ on, onChange, title }: { on: boolean; onChange: (v: boolean) 
       onClick={(e) => { e.stopPropagation(); onChange(!on); }}><span className="switchKnob" /></button>
   );
 }
-function PThumb({ name, hue, big }: { name: string; hue: number; big?: boolean }) {
-  return <span className={"pthumb" + (big ? " pthumb--big" : "")} style={{ "--hue": hue } as React.CSSProperties}><span className="thumbInit">{(name || "?").trim().charAt(0)}</span></span>;
+function PThumb({ name, hue, big, img }: { name: string; hue: number; big?: boolean; img?: string }) {
+  return (
+    <span className={"pthumb" + (big ? " pthumb--big" : "")} style={{ "--hue": hue } as React.CSSProperties}>
+      {img
+        ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={img} alt="" />)
+        : <span className="thumbInit">{(name || "?").trim().charAt(0)}</span>}
+    </span>
+  );
 }
 function PStockPill({ stock }: { stock: number }) {
   const cls = stock === 0 ? "stock--out" : stock <= 10 ? "stock--low" : "stock--ok";
@@ -1059,7 +1065,7 @@ function ProductsView({
                   <div className={"prow" + (selected ? " is-sel" : "")} key={p.id} onClick={() => onEdit(p.id)}>
                     <button className={"pcheck" + (selected ? " is-checked" : "")} onClick={(e) => { e.stopPropagation(); onSelectRow(p.id); }}>{selected && <IconCheckV s={13} />}</button>
                     <div className="pcell pcell--main">
-                      <PThumb name={p.name} hue={hueOf(p.cat)} />
+                      <PThumb name={p.name} hue={hueOf(p.cat)} img={p.image} />
                       <div className="pbinfo">
                         <div className="pname">{p.name}{p.visible === false && <span className="hiddenTag">დამალული</span>}</div>
                         <div className="pdesc">{p.subtitle || p.desc || ""} · <span className="pbrand">{b ? b.name : ""}</span></div>
@@ -1091,7 +1097,7 @@ function ProductsView({
                   <div className={"pbcard" + (selected ? " is-sel" : "")} key={p.id}>
                     <div className="pcardTop" style={{ "--hue": hueOf(p.cat) } as React.CSSProperties}>
                       <button className={"pcheck pcheck--card" + (selected ? " is-checked" : "")} onClick={() => onSelectRow(p.id)}>{selected && <IconCheckV s={13} />}</button>
-                      <PThumb name={p.name} hue={hueOf(p.cat)} big />
+                      <PThumb name={p.name} hue={hueOf(p.cat)} big img={p.image} />
                       <div className="pcardActions">
                         <button className="iconBtn2" onClick={() => onEdit(p.id)} title="რედაქტირება"><IconPencilV s={14} /></button>
                         <button className="iconBtn2 iconBtn2--del" onClick={() => removeOne(p)} title="წაშლა"><IconTrashV s={14} /></button>
