@@ -1398,8 +1398,6 @@ function BrandEditor({
 /* ============================================================
    Categories & facets
    ============================================================ */
-const FACETS: [string, string][] = [["size", "ზომა"], ["color", "ფერი"], ["surface", "ზედაპირი"]];
-
 function CatsView({
   db, updateCategory, upsertCategory, deleteCategory, toast,
 }: {
@@ -1412,12 +1410,12 @@ function CatsView({
   const tree = flatCatTree(db.categories);
 
   /* ---- add / edit form ---- */
-  const blank = { id: "", name: "", parentId: "", facets: ["size", "color", "surface"] as string[] };
+  const blank = { id: "", name: "", parentId: "" };
   const [form, setForm] = useState(blank);
   const editing = !!form.id;
 
   const uniqueId = (name: string) => {
-    let base = slugify(name) || "cat";
+    const base = slugify(name) || "cat";
     let id = base, n = 2;
     while (db.categories.some((c) => c.id === id)) id = `${base}-${n++}`;
     return id;
@@ -1436,18 +1434,18 @@ function CatsView({
         return false;
       }).map((t) => t.c.id));
       const parentId = form.parentId && !banned.has(form.parentId) ? form.parentId : null;
-      upsertCategory({ ...existing, name, parentId, facets: form.facets });
+      upsertCategory({ ...existing, name, parentId });
       toast(<><span className="tick">✓</span> კატეგორია განახლდა</>);
     } else {
       const order = Math.max(0, ...db.categories.map((c) => c.order)) + 1;
-      upsertCategory({ id: uniqueId(name), name, parentId: form.parentId || null, group: null, facets: form.facets, order });
+      upsertCategory({ id: uniqueId(name), name, parentId: form.parentId || null, group: null, facets: ["size", "color"], order });
       toast(<><span className="tick">✓</span> კატეგორია დაემატა</>);
     }
     setForm(blank);
   };
 
   const startEdit = (c: Category) =>
-    setForm({ id: c.id, name: c.name, parentId: c.parentId || "", facets: [...c.facets] });
+    setForm({ id: c.id, name: c.name, parentId: c.parentId || "" });
 
   const removeCat = (c: Category) => {
     const n = db.products.filter((p) => p.cat === c.id).length;
@@ -1459,14 +1457,6 @@ function CatsView({
     if (form.id === c.id) setForm(blank);
     deleteCategory(c.id);
     toast(<><span className="tick">✓</span> წაიშალა</>);
-  };
-
-  const toggleFormFacet = (f: string, on: boolean) =>
-    setForm((s) => ({ ...s, facets: on ? [...new Set([...s.facets, f])] : s.facets.filter((x) => x !== f) }));
-
-  const toggleFacet = (c: Category, f: string, on: boolean) => {
-    const facets = on ? [...new Set([...c.facets, f])] : c.facets.filter((x) => x !== f);
-    updateCategory({ ...c, facets });
   };
 
   // reorder within the same parent (swap order with adjacent sibling)
@@ -1483,7 +1473,7 @@ function CatsView({
     <>
       <div className="adm-head">
         <h1>კატეგორიები</h1>
-        <p className="sub">მართე კატეგორიების ხე — დაამატე ახალი, მიანიჭე parent (ძირითადი/ქვე-კატეგორია) და აირჩიე რომელი ფილტრები ეხება. ფერით ფილტრაცია ნაგულისხმევად ჩართულია.</p>
+        <p className="sub">დაამატე კატეგორია, მიანიჭე ძირითადი (parent) კატეგორია და დაალაგე. სხვა არაფერი სჭირდება — მაღაზიის ფილტრები ავტომატურად აეწყობა.</p>
       </div>
 
       {/* add / edit form */}
@@ -1500,24 +1490,14 @@ function CatsView({
               {flatCatTree(db.categories)
                 .filter((t) => t.c.id !== form.id)
                 .map(({ c, depth }) => (
-                  <option key={c.id} value={c.id}>{`${" ".repeat(depth * 2)}${depth ? "└ " : ""}${c.name}`}</option>
+                  <option key={c.id} value={c.id}>{`${"  ".repeat(depth)}${depth ? "└ " : ""}${c.name}`}</option>
                 ))}
             </select>
           </div>
         </div>
-        <div className="cat-form-foot">
-          <div className="facets">
-            <span className="dim" style={{ marginRight: 8 }}>ფილტრები:</span>
-            {FACETS.map(([f, l]) => (
-              <label key={f}>
-                <input type="checkbox" checked={form.facets.includes(f)} onChange={(e) => toggleFormFacet(f, e.target.checked)} /> {l}
-              </label>
-            ))}
-          </div>
-          <div className="cat-form-actions">
-            {editing && <button className="btn-line sm" onClick={() => setForm(blank)}>გაუქმება</button>}
-            <button className="btn sm" onClick={save}>{editing ? "შენახვა" : "+ დამატება"}</button>
-          </div>
+        <div className="cat-form-actions">
+          {editing && <button className="btn-line sm" onClick={() => setForm(blank)}>გაუქმება</button>}
+          <button className="btn sm" onClick={save}>{editing ? "შენახვა" : "+ დამატება"}</button>
         </div>
       </div>
 
@@ -1537,13 +1517,6 @@ function CatsView({
                 {depth > 0 && <span className="dim" style={{ marginRight: 6 }}>└</span>}
                 {c.name}
                 <br /><span className="dim">{depth === 0 ? "ძირითადი" : "ქვე-კატეგორია"} · {n} პროდუქტი</span>
-              </div>
-              <div className="facets">
-                {FACETS.map(([f, l]) => (
-                  <label key={f}>
-                    <input type="checkbox" checked={c.facets.includes(f)} onChange={(e) => toggleFacet(c, f, e.target.checked)} /> {l}
-                  </label>
-                ))}
               </div>
               <div className="cat-actions">
                 <button className="btn-line sm" title="რედაქტირება" onClick={() => startEdit(c)}>✎</button>

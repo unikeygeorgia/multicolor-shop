@@ -127,13 +127,6 @@ export function ShopClient() {
       );
     });
 
-  const activeFacets = useMemo(() => {
-    if (cats.length === 0) return ["size", "color"];
-    const set = new Set<string>();
-    cats.forEach((cid) => (catById(cid)?.facets || []).forEach((f) => set.add(f)));
-    set.delete("surface");
-    return [...set];
-  }, [cats, catById]);
 
   const matches = (p: Product) => {
     if (p.visible === false) return false;
@@ -241,7 +234,7 @@ export function ShopClient() {
         </div>
       </details>
 
-      {activeFacets.includes("size") && (
+      {sizeOptions.length > 0 && (
         <details className="fgroup" open>
           <summary>შეფუთვა / ზომა</summary>
           <div className="fbody scrolly">
@@ -255,7 +248,7 @@ export function ShopClient() {
         </details>
       )}
 
-      {activeFacets.includes("color") && colorOptions.length > 0 && (
+      {colorOptions.length > 0 && (
         <details className="fgroup" open>
           <summary>ფერი</summary>
           <div className="fbody swgrid">
