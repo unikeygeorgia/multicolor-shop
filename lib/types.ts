@@ -99,6 +99,8 @@ export interface AppSettings {
   pricesHidden: boolean;
   /** enable cart / checkout / accounts; when false the site is a catalog only */
   commerceEnabled: boolean;
+  /** show stock tracking in the admin (temporary, until FINA) */
+  stockEnabled: boolean;
 }
 
 export interface HeroSlide {

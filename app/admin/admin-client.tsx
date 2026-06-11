@@ -178,7 +178,7 @@ type Editor =
 export function AdminClient() {
   const store = useStore();
   const {
-    db, orders, prodById, brandById, catById, setOrderStatus,
+    db, orders, prodById, brandById, setOrderStatus,
     upsertProduct, deleteProduct, upsertBrand, deleteBrand, updateCategory,
     upsertCategory, deleteCategory,
     savePromotion, deletePromotion, togglePromotion, updateHero, reload,
@@ -326,7 +326,7 @@ export function AdminClient() {
                 <OrdersView orders={orders} orderTotal={orderTotal} setOrderStatus={setOrderStatus} onOrder={(id) => setEditor({ kind: "order", id })} />
               )}
               {view === "products" && (
-                <ProductsView db={db} brandById={brandById} catById={catById} query={query} setQuery={setQuery} onEdit={(id) => setEditor({ kind: "product", id })} upsertProduct={upsertProduct} pricesHidden={store.settings.pricesHidden} toast={store.toast} />
+                <ProductsView db={db} brandById={brandById} query={query} onEdit={(id) => setEditor({ kind: "product", id })} upsertProduct={upsertProduct} deleteProduct={deleteProduct} toast={store.toast} pricesHidden={store.settings.pricesHidden} stockEnabled={store.settings.stockEnabled} />
               )}
               {view === "customers" && <CustomersView orders={orders} orderTotal={orderTotal} />}
               {view === "calendar" && <SalesCalendarView orders={orders} orderTotal={orderTotal} />}
@@ -403,7 +403,7 @@ function SettingsView({
   settings, updateSetting,
 }: {
   settings: AppSettings;
-  updateSetting: (key: "prices_hidden" | "commerce_enabled", value: boolean) => void;
+  updateSetting: (key: "prices_hidden" | "commerce_enabled" | "stock_enabled", value: boolean) => void;
 }) {
   return (
     <>
@@ -441,6 +441,23 @@ function SettingsView({
               type="checkbox"
               checked={settings.commerceEnabled}
               onChange={(e) => updateSetting("commerce_enabled", e.target.checked)}
+            />
+            <span />
+          </label>
+        </div>
+        <div style={{ borderTop: "1px solid var(--line)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div>
+            <b style={{ fontSize: 14 }}>მარაგის ჩვენება (ადმინში)</b>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>
+              დროებითი — სანამ FINA ჩაერთვება. ჩართულია → პროდუქტებში ჩანს მარაგის სვეტი/სტატუსი და პროდუქტის ფორმაში მარაგის ველი.
+            </p>
+          </div>
+          <label className="tgl">
+            <input
+              type="checkbox"
+              checked={settings.stockEnabled}
+              onChange={(e) => updateSetting("stock_enabled", e.target.checked)}
             />
             <span />
           </label>
@@ -767,208 +784,331 @@ function OrderDetail({
 }
 
 /* ============================================================
-   Products
+   Products board (Claude Design handoff) — real Supabase data
    ============================================================ */
-const IconCopyV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></Ico2>);
+const IconLayersV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 18l9 5 9-5" /></Ico2>);
+const IconBoxV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8" /></Ico2>);
+const IconFolderV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></Ico2>);
+const fmtP = (n: number) => n.toLocaleString("en-US");
+
+function PSwitch({ on, onChange, title }: { on: boolean; onChange: (v: boolean) => void; title?: string }) {
+  return (
+    <button className={"switch" + (on ? " is-on" : "")} role="switch" aria-checked={on} title={title}
+      onClick={(e) => { e.stopPropagation(); onChange(!on); }}><span className="switchKnob" /></button>
+  );
+}
+function PThumb({ name, hue, big }: { name: string; hue: number; big?: boolean }) {
+  return <span className={"pthumb" + (big ? " pthumb--big" : "")} style={{ "--hue": hue } as React.CSSProperties}><span className="thumbInit">{(name || "?").trim().charAt(0)}</span></span>;
+}
+function PStockPill({ stock }: { stock: number }) {
+  const cls = stock === 0 ? "stock--out" : stock <= 10 ? "stock--low" : "stock--ok";
+  const txt = stock === 0 ? "ამოწურული" : stock <= 10 ? "ცოტაა · " + stock : stock + " ცალი";
+  return <span className={"stockPill " + cls}>{txt}</span>;
+}
 
 function ProductsView({
-  db, brandById, catById, query, setQuery, onEdit, upsertProduct, pricesHidden, toast,
+  db, brandById, query, onEdit, upsertProduct, deleteProduct, toast, pricesHidden, stockEnabled,
 }: {
   db: MulticolorData;
   brandById: (id: string) => Brand | undefined;
-  catById: (id: string) => { name: string } | undefined;
   query: string;
-  setQuery: (v: string) => void;
   onEdit: (id: string | null) => void;
   upsertProduct: (p: Product) => void;
-  pricesHidden: boolean;
+  deleteProduct: (id: string) => void;
   toast: (n: React.ReactNode) => void;
+  pricesHidden: boolean;
+  stockEnabled: boolean;
 }) {
-  void setQuery;
-  const priceMax = Math.ceil(Math.max(10, ...db.products.map((p) => minPrice(p))) / 10) * 10;
-  const [mode, setMode] = useState<"list" | "grid">("list");
-  const [cats, setCats] = useState<string[]>([]);
-  const [brands, setBrands] = useState<string[]>([]);
-  const [pmax, setPmax] = useState(priceMax);
+  void pricesHidden;
+  /* category hue + helpers from real data */
+  const topLevel = useMemo(() => db.categories.filter((c) => !c.parentId).sort((a, b) => a.order - b.order), [db.categories]);
+  const hueByTop = useMemo(() => { const m = new Map<string, number>(); topLevel.forEach((c, i) => m.set(c.id, HUE_PALETTE[i % HUE_PALETTE.length])); return m; }, [topLevel]);
+  const rootOf = useCallback((id: string) => { let cur: string | null | undefined = id, g = 0; while (cur && g++ < 40) { const c = db.categories.find((x) => x.id === cur); if (!c) break; if (!c.parentId) return c.id; cur = c.parentId; } return id; }, [db.categories]);
+  const hueOf = useCallback((id: string) => hueByTop.get(rootOf(id)) ?? 250, [hueByTop, rootOf]);
+  const nameOf = useCallback((id: string) => db.categories.find((c) => c.id === id)?.name || id, [db.categories]);
+  const stockOf = (p: Product) => p.sizes.reduce((a, sz) => a + (sz.s || 0), 0);
+  const isUnder = useCallback((catId: string, sel: Set<string>) => { let cur: string | null | undefined = catId, g = 0; while (cur && g++ < 40) { if (sel.has(cur)) return true; cur = db.categories.find((x) => x.id === cur)?.parentId; } return false; }, [db.categories]);
+
+  const [q, setQ] = useState(query || "");
+  const [view, setView] = useState<"list" | "grid">("list");
+  const [showFilters, setShowFilters] = useState(true);
+  const [sort, setSort] = useState<{ key: "name" | "price" | "stock"; dir: number }>({ key: "name", dir: 1 });
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [f, setF] = useState<{ cats: Set<string>; brands: Set<string>; status: Set<string> }>({ cats: new Set(), brands: new Set(), status: new Set() });
+  const [brandQ, setBrandQ] = useState("");
+  const [fExpanded, setFExpanded] = useState<Set<string>>(new Set());
 
-  const toggle = (arr: string[], set: (v: string[]) => void, v: string) =>
-    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  const onToggle = (p: Product, key: "live" | "ai", val: boolean) =>
+    upsertProduct(key === "live" ? { ...p, visible: val } : { ...p, inAi: val });
+  const onSelectRow = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const duplicate = (p: Product) => {
+    const copy: Product = { ...p, id: uid("p"), name: p.name + " (ასლი)", slug: ((p.slug || p.id) + "-copy-" + Math.random().toString(36).slice(2, 5)), visible: false };
+    upsertProduct(copy);
+    toast(<><span className="tick">✓</span> დუბლირდა (დამალული)</>);
+  };
+  const removeOne = (p: Product) => { if (confirm("წაიშალოს „" + p.name + "“?")) { deleteProduct(p.id); toast(<><span className="tick">✓</span> წაიშალა</>); } };
 
-  const list = db.products.filter((p) => {
-    if (cats.length && !cats.includes(p.cat)) return false;
-    if (brands.length && !brands.includes(p.brand)) return false;
-    if (!pricesHidden && minPrice(p) > pmax) return false;
-    if (query) {
-      const hay = (p.name + " " + (p.subtitle || "") + " " + (brandById(p.brand)?.name || "")).toLowerCase();
-      if (!hay.includes(query.toLowerCase())) return false;
-    }
-    return true;
+  const counts = useMemo(() => {
+    const cat: Record<string, number> = {}, brand: Record<string, number> = {};
+    db.products.forEach((p) => { cat[p.cat] = (cat[p.cat] || 0) + 1; brand[p.brand] = (brand[p.brand] || 0) + 1; });
+    return { cat, brand };
+  }, [db.products]);
+  // total products under a category (incl. descendants)
+  const catTotal = useCallback((id: string): number => {
+    let n = counts.cat[id] || 0;
+    db.categories.filter((c) => c.parentId === id).forEach((c) => { n += catTotal(c.id); });
+    return n;
+  }, [counts, db.categories]);
+
+  const filtered = useMemo(() => {
+    let list = db.products.filter((p) => {
+      if (q.trim()) { const hay = (p.name + " " + (p.subtitle || p.desc || "") + " " + (brandById(p.brand)?.name || "")).toLowerCase(); if (!hay.includes(q.trim().toLowerCase())) return false; }
+      if (f.cats.size && !isUnder(p.cat, f.cats)) return false;
+      if (f.brands.size && !f.brands.has(p.brand)) return false;
+      if (f.status.size) { const tags = new Set([p.visible !== false ? "live" : "hidden"]); if (stockEnabled && stockOf(p) === 0) tags.add("out"); if (![...f.status].some((s2) => tags.has(s2))) return false; }
+      return true;
+    });
+    const dir = sort.dir;
+    list = [...list].sort((a, b) => {
+      if (sort.key === "price") return (minPrice(a) - minPrice(b)) * dir;
+      if (sort.key === "stock") return (stockOf(a) - stockOf(b)) * dir;
+      return a.name.localeCompare(b.name, "ka") * dir;
+    });
+    return list;
+  }, [db.products, q, f, sort, brandById, isUnder, stockEnabled]);
+
+  const setSortKey = (key: "name" | "price" | "stock") => setSort((s) => s.key === key ? { key, dir: -s.dir } : { key, dir: 1 });
+  const allSel = filtered.length > 0 && filtered.every((p) => sel.has(p.id));
+  const toggleAll = () => setSel(allSel ? new Set() : new Set(filtered.map((p) => p.id)));
+
+  const stats = useMemo(() => ({
+    total: db.products.length,
+    live: db.products.filter((p) => p.visible !== false).length,
+    hidden: db.products.filter((p) => p.visible === false).length,
+    out: db.products.filter((p) => stockOf(p) === 0).length,
+  }), [db.products]);
+
+  const STATUS_LABELS: Record<string, string> = { live: "საიტზე", hidden: "დამალული", out: "ამოწურული" };
+  const activeChips = [
+    ...[...f.cats].map((c) => ({ type: "cat" as const, val: c, label: nameOf(c) })),
+    ...[...f.brands].map((b) => ({ type: "brand" as const, val: b, label: brandById(b)?.name || b })),
+    ...[...f.status].map((st) => ({ type: "status" as const, val: st, label: STATUS_LABELS[st] })),
+  ];
+  const clearFilters = () => setF({ cats: new Set(), brands: new Set(), status: new Set() });
+  const removeChip = (c: { type: "cat" | "brand" | "status"; val: string }) => setF((x) => {
+    const keyMap = { cat: "cats", brand: "brands", status: "status" } as const;
+    const k = keyMap[c.type]; const n = new Set(x[k]); n.delete(c.val); return { ...x, [k]: n };
   });
 
-  const catCount = (id: string) => db.products.filter((p) => p.cat === id).length;
-  const brandCount = (id: string) => db.products.filter((p) => p.brand === id).length;
+  const toggleExp = (id: string) => setFExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleCat = (id: string) => setF((x) => { const n = new Set(x.cats); n.has(id) ? n.delete(id) : n.add(id); return { ...x, cats: n }; });
+  const toggleBrand = (id: string) => setF((x) => { const n = new Set(x.brands); n.has(id) ? n.delete(id) : n.add(id); return { ...x, brands: n }; });
+  const toggleStatus = (st: string) => setF((x) => { const n = new Set(x.status); n.has(st) ? n.delete(st) : n.add(st); return { ...x, status: n }; });
 
-  const allSelected = list.length > 0 && list.every((p) => sel.has(p.id));
-  const toggleAll = () => setSel(allSelected ? new Set() : new Set(list.map((p) => p.id)));
-  const toggleOne = (id: string) => { const n = new Set(sel); if (n.has(id)) n.delete(id); else n.add(id); setSel(n); };
-
-  const setVisible = (p: Product, v: boolean) => upsertProduct({ ...p, visible: v });
-  const setInAi = (p: Product, v: boolean) => upsertProduct({ ...p, inAi: v });
-  const copyLink = (p: Product) => {
-    const url = `https://multicolorge.vercel.app/product?slug=${p.slug || p.id}`;
-    if (navigator.clipboard) navigator.clipboard.writeText(url);
-    toast(<><span className="tick">✓</span> ლინკი დაკოპირდა</>);
-  };
+  const bulkSet = (visible: boolean) => { db.products.filter((p) => sel.has(p.id)).forEach((p) => upsertProduct({ ...p, visible })); };
+  const bulkDelete = () => { if (!confirm(sel.size + " პროდუქტი წაიშალოს?")) return; [...sel].forEach((id) => deleteProduct(id)); setSel(new Set()); };
 
   const exportCsv = () => {
-    const rows = sel.size ? list.filter((p) => sel.has(p.id)) : list;
-    const head = ["id", "სახელი", "ქვესათაური", "ბრენდი", "კატეგორია", "ფასი", "საიტზე", "AI", "ლინკი"];
-    const data = rows.map((p) => [
-      p.id, p.name, p.subtitle || "", brandById(p.brand)?.name || "", catById(p.cat)?.name || "",
-      minPrice(p), p.visible !== false ? "კი" : "არა", p.inAi !== false ? "კი" : "არა",
-      `https://multicolorge.vercel.app/product?slug=${p.slug || p.id}`,
-    ]);
+    const rows = sel.size ? filtered.filter((p) => sel.has(p.id)) : filtered;
+    const head = ["id", "სახელი", "ქვესათაური", "ბრენდი", "კატეგორია", "ფასი", "მარაგი", "საიტზე", "AI", "ლინკი"];
+    const data = rows.map((p) => [p.id, p.name, p.subtitle || "", brandById(p.brand)?.name || "", nameOf(p.cat), minPrice(p), stockOf(p), p.visible !== false ? "კი" : "არა", p.inAi !== false ? "კი" : "არა", `https://multicolorge.vercel.app/product?slug=${p.slug || p.id}`]);
     const csv = [head, ...data].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "products.csv"; a.click();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "products.csv"; a.click(); URL.revokeObjectURL(url);
   };
 
-  const clearAll = () => { setCats([]); setBrands([]); setPmax(priceMax); };
+  const SortHead = ({ k, children, align }: { k: "name" | "price" | "stock"; children: React.ReactNode; align?: string }) => (
+    <button className={"sortHead" + (sort.key === k ? " is-active" : "") + (align ? " sh--" + align : "")} onClick={() => setSortKey(k)}>
+      {children}<span className={"sortArrow" + (sort.key === k && sort.dir < 0 ? " down" : "")}><IconChevR s={12} /></span>
+    </button>
+  );
+
+  /* filter category tree node */
+  const FilterTreeNode = ({ id, depth, hue }: { id: string; depth: number; hue: number }) => {
+    const kids = db.categories.filter((c) => c.parentId === id).sort((a, b) => a.order - b.order);
+    const hasKids = kids.length > 0;
+    const open = fExpanded.has(id);
+    const checked = f.cats.has(id);
+    const h = depth === 0 ? hueByTop.get(id) ?? hue : hue;
+    return (
+      <div>
+        <div className="ftRow" style={{ "--hue": h, paddingLeft: 6 + depth * 16 } as React.CSSProperties}>
+          <button className={"ftCheck" + (checked ? " is-checked" : "")} onClick={() => toggleCat(id)}>{checked && <IconCheckV s={12} />}</button>
+          {hasKids ? <button className={"ftDisc" + (open ? " is-open" : "")} onClick={() => toggleExp(id)}><IconChevR s={13} /></button> : <span className="ftDot" />}
+          <button className="ftName" onClick={() => toggleCat(id)}>{nameOf(id)}</button>
+          <span className="ftCount">{catTotal(id)}</span>
+        </div>
+        {open && hasKids && <div>{kids.map((c) => <FilterTreeNode key={c.id} id={c.id} depth={depth + 1} hue={h} />)}</div>}
+      </div>
+    );
+  };
+
+  const brandsShown = db.brands.filter((b) => b.name.toLowerCase().includes(brandQ.toLowerCase()));
+  const activeFilters = f.cats.size + f.brands.size + f.status.size;
+  const statusKeys: [string, string][] = stockEnabled ? [["live", "საიტზე"], ["hidden", "დამალული"], ["out", "ამოწურული"]] : [["live", "საიტზე"], ["hidden", "დამალული"]];
 
   return (
-    <>
-      <div className="adm-toolbar2">
-        <div className="view-toggle">
-          <button className={mode === "list" ? "on" : ""} onClick={() => setMode("list")}><IListV /> სია</button>
-          <button className={mode === "grid" ? "on" : ""} onClick={() => setMode("grid")}><IGridV /> ბადე</button>
+    <div className="page page--wide">
+      <header className="pageHead">
+        <div>
+          <h1 className="pageTitle">პროდუქტები</h1>
+          <p className="pageSub">მართეთ კატალოგი — გაფილტრეთ კატეგორიითა და ბრენდით, ჩართეთ/გამორთეთ საიტზე და AI, დაასორტირეთ სვეტებით.</p>
         </div>
-        <div className="toolbar-right">
-          <button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button>
-          <button className="btn sm" onClick={() => onEdit(null)}>+ ახალი პროდუქტი</button>
+        <div className="statRow">
+          <div className="mcxstat"><span className="statNum">{stats.total}</span><span className="statLbl">პროდუქტი</span></div>
+          <div className="statDiv" />
+          <div className="mcxstat"><span className="statNum" style={{ color: "var(--ok)" }}>{stats.live}</span><span className="statLbl">საიტზე</span></div>
+          <div className="statDiv" />
+          <div className="mcxstat"><span className="statNum">{stats.hidden}</span><span className="statLbl">დამალული</span></div>
+          {stockEnabled && <><div className="statDiv" /><div className="mcxstat"><span className="statNum" style={{ color: "var(--danger)" }}>{stats.out}</span><span className="statLbl">ამოწურული</span></div></>}
         </div>
+      </header>
+
+      <div className="toolbar">
+        <button className={"pbtn pbtn--ghost" + (showFilters ? " is-active" : "")} onClick={() => setShowFilters((v) => !v)}>
+          <IconLayersV s={16} /> ფილტრები{activeChips.length > 0 && <span className="btnBadge">{activeChips.length}</span>}
+        </button>
+        <div className="searchBox" style={{ flex: 1 }}>
+          <IconSearchV s={17} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ძებნა პროდუქტებში…" />
+          {q && <button className="clearBtn" onClick={() => setQ("")}><IconXV s={14} /></button>}
+        </div>
+        <div className="segment">
+          <button className={view === "list" ? "is-on" : ""} onClick={() => setView("list")} title="სია"><IListV /></button>
+          <button className={view === "grid" ? "is-on" : ""} onClick={() => setView("grid")} title="ბადე"><IGridV /></button>
+        </div>
+        <button className="pbtn pbtn--ghost" onClick={exportCsv}><IDownload /> Export</button>
+        <button className="newCatBtn" onClick={() => onEdit(null)}><IconPlusV s={18} /> ახალი პროდუქტი</button>
       </div>
 
-      <div className="prod-layout">
-        <aside className="fpanel">
-          <div className="fpanel-head">
-            <b>ფილტრები</b>
-            <button className="clear" onClick={clearAll}>გასუფთავება ✕</button>
-          </div>
-          <div className="fsec">
-            <div className="fsec-h">კატეგორია</div>
-            {flatCatTree(db.categories).map(({ c, depth }) => (
-              <label className="fopt" key={c.id} style={{ paddingLeft: depth * 14 }}>
-                <input type="checkbox" checked={cats.includes(c.id)} onChange={() => toggle(cats, setCats, c.id)} />
-                {depth > 0 && <span style={{ color: "var(--muted)", marginRight: 2 }}>└</span>}{c.name}<span className="cnt">{catCount(c.id)}</span>
-              </label>
-            ))}
-          </div>
-          {!pricesHidden && (
-            <div className="fsec">
-              <div className="fsec-h">ფასი (₾)</div>
-              <div className="price-vals num"><span>0</span><span>{pmax} ₾</span></div>
-              <input type="range" min={0} max={priceMax} step={5} value={pmax} onChange={(e) => setPmax(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
+      {activeChips.length > 0 && (
+        <div className="chipBar">
+          {activeChips.map((c, i) => (
+            <button key={i} className={"activeChip" + (c.type === "cat" ? " activeChip--cat" : "")} style={c.type === "cat" ? { "--hue": hueOf(c.val) } as React.CSSProperties : undefined} onClick={() => removeChip(c)}>
+              {c.label}<IconXV s={12} />
+            </button>
+          ))}
+          <button className="clearLink" onClick={clearFilters}>ყველას გასუფთავება</button>
+        </div>
+      )}
+
+      <div className={"prodLayout" + (showFilters ? "" : " no-filters")}>
+        {showFilters && (
+          <aside className="filterPanel">
+            <div className="filterHead">
+              <span>ფილტრები{activeFilters > 0 && <span className="filterCount">{activeFilters}</span>}</span>
+              {activeFilters > 0 && <button className="clearLink" onClick={clearFilters}>გასუფთავება</button>}
+              <button className="filterClose" onClick={() => setShowFilters(false)} title="დახურვა"><IconXV s={16} /></button>
             </div>
-          )}
-          <div className="fsec">
-            <div className="fsec-h">ბრენდი</div>
-            {db.brands.map((b) => (
-              <label className="fopt" key={b.id}>
-                <input type="checkbox" checked={brands.includes(b.id)} onChange={() => toggle(brands, setBrands, b.id)} />
-                {b.name}<span className="cnt">{brandCount(b.id)}</span>
-              </label>
-            ))}
-          </div>
-        </aside>
+            <div className="filterSection">
+              <div className="filterLbl">სტატუსი</div>
+              <div className="chipRow">
+                {statusKeys.map(([k, l]) => (<button key={k} className={"filterChip" + (f.status.has(k) ? " is-on" : "")} onClick={() => toggleStatus(k)}>{l}</button>))}
+              </div>
+            </div>
+            <div className="filterSection">
+              <div className="filterLbl">კატეგორია</div>
+              <div className="ftTree">
+                {topLevel.map((c) => <FilterTreeNode key={c.id} id={c.id} depth={0} hue={hueByTop.get(c.id) ?? 250} />)}
+              </div>
+            </div>
+            <div className="filterSection">
+              <div className="filterLbl">ბრენდი</div>
+              <div className="brandSearch"><IconSearchV s={14} /><input value={brandQ} onChange={(e) => setBrandQ(e.target.value)} placeholder="ბრენდის ძებნა…" /></div>
+              <div className="brandList">
+                {brandsShown.map((b) => (
+                  <button key={b.id} className={"brandRow" + (f.brands.has(b.id) ? " is-on" : "")} onClick={() => toggleBrand(b.id)}>
+                    <span className={"ftCheck" + (f.brands.has(b.id) ? " is-checked" : "")}>{f.brands.has(b.id) && <IconCheckV s={12} />}</span>
+                    <span className="brandName">{b.name}</span>
+                    <span className="ftCount">{counts.brand[b.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
 
-        <div className="acard2">
-          <div className="acard2-head">
-            <h3>პროდუქტები <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 13 }}>({list.length})</span></h3>
-            <div className="right"><button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button></div>
-          </div>
-
+        <div className="prodMain">
           {sel.size > 0 && (
-            <div className="bulkbar">
-              {sel.size} მონიშნული
-              <button className="mini-btn" onClick={exportCsv}>მონიშნულის Export</button>
-              <button className="mini-btn" onClick={() => setSel(new Set())}>გასუფთავება</button>
+            <div className="bulkBar">
+              <span className="bulkCount">{sel.size} მონიშნული</span>
+              <button className="pbtn pbtn--ghost pbtn--sm" onClick={() => bulkSet(true)}>გამოქვეყნება</button>
+              <button className="pbtn pbtn--ghost pbtn--sm" onClick={() => bulkSet(false)}>დამალვა</button>
+              <button className="pbtn pbtn--ghost pbtn--sm pbtn--danger" onClick={bulkDelete}><IconTrashV s={14} /> წაშლა</button>
+              <button className="clearLink" onClick={() => setSel(new Set())}>გაუქმება</button>
             </div>
           )}
 
-          {mode === "list" ? (
-            <table className="ptable">
-              <thead>
-                <tr>
-                  <th style={{ width: 36 }}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
-                  <th>პროდუქტი</th>
-                  <th>ფასი</th>
-                  <th>კატეგორია</th>
-                  <th style={{ textAlign: "center" }}>საიტზე</th>
-                  <th style={{ textAlign: "center" }}>AI</th>
-                  <th style={{ width: 70 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((p) => {
-                  const b = brandById(p.brand);
-                  const vis = p.visible !== false; const ai = p.inAi !== false;
-                  return (
-                    <tr className="rowlink" key={p.id} onClick={() => onEdit(p.id)}>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggleOne(p.id)} />
-                      </td>
-                      <td>
-                        <div className="pinfo">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={prodImg(p, b, 80, 80)} alt="" />
-                          <div>
-                            <div className="nm">{p.name}</div>
-                            <div className="br">{p.subtitle ? p.subtitle + " · " : ""}{b ? b.name : ""}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="num">{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</td>
-                      <td>{catById(p.cat)?.name || "—"}</td>
-                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                        <label className="tgl tgl-sm"><input type="checkbox" checked={vis} onChange={() => setVisible(p, !vis)} /><span /></label>
-                      </td>
-                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                        <label className="tgl tgl-sm"><input type="checkbox" checked={ai} onChange={() => setInAi(p, !ai)} /><span /></label>
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <button className="mini-btn icon-only" title="ლინკის კოპირება" onClick={() => copyLink(p)}><IconCopyV /></button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="pgrid-adm">
-              {list.map((p) => {
-                const b = brandById(p.brand);
-                const vis = p.visible !== false; const ai = p.inAi !== false;
+          {filtered.length === 0 ? (
+            <div className="treeCard"><div className="emptyState"><IconBoxV s={28} /><p>პროდუქტი ვერ მოიძებნა</p></div></div>
+          ) : view === "list" ? (
+            <div className={"pbtable" + (stockEnabled ? "" : " no-stock")}>
+              <div className="ptHead">
+                <button className={"pcheck" + (allSel ? " is-checked" : "")} onClick={toggleAll}>{allSel && <IconCheckV s={13} />}</button>
+                <div className="pcell pcell--main"><SortHead k="name">პროდუქტი</SortHead></div>
+                <div className="pcell pcell--cat">კატეგორია</div>
+                <div className="pcell pcell--price"><SortHead k="price" align="end">ფასი</SortHead></div>
+                {stockEnabled && <div className="pcell pcell--stock"><SortHead k="stock">მარაგი</SortHead></div>}
+                <div className="pcell pcell--tog">საიტზე</div>
+                <div className="pcell pcell--tog">AI</div>
+                <div className="pcell pcell--act" />
+              </div>
+              {filtered.map((p) => {
+                const b = brandById(p.brand); const selected = sel.has(p.id); const price = minPrice(p);
                 return (
-                  <div className="pcard-adm" key={p.id}>
-                    <div className="ph" onClick={() => onEdit(p.id)} style={{ cursor: "pointer" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={prodImg(p, b, 300, 300)} alt="" />
-                    </div>
-                    <div className="b">
-                      <div className="nm" onClick={() => onEdit(p.id)} style={{ cursor: "pointer" }}>{p.name}</div>
-                      {p.subtitle && <div className="br" style={{ fontSize: 12, color: "var(--muted)" }}>{p.subtitle}</div>}
-                      <div className="mcxmeta" style={{ marginTop: 4 }}>
-                        <span className="price">{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</span>
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>{catById(p.cat)?.name || "—"}</span>
+                  <div className={"prow" + (selected ? " is-sel" : "")} key={p.id} onClick={() => onEdit(p.id)}>
+                    <button className={"pcheck" + (selected ? " is-checked" : "")} onClick={(e) => { e.stopPropagation(); onSelectRow(p.id); }}>{selected && <IconCheckV s={13} />}</button>
+                    <div className="pcell pcell--main">
+                      <PThumb name={p.name} hue={hueOf(p.cat)} />
+                      <div className="pbinfo">
+                        <div className="pname">{p.name}{p.visible === false && <span className="hiddenTag">დამალული</span>}</div>
+                        <div className="pdesc">{p.subtitle || p.desc || ""} · <span className="pbrand">{b ? b.name : ""}</span></div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-                        <label className="tgl tgl-sm" title="საიტზე"><input type="checkbox" checked={vis} onChange={() => setVisible(p, !vis)} /><span /></label>
-                        <label className="tgl tgl-sm" title="AI ბაზა"><input type="checkbox" checked={ai} onChange={() => setInAi(p, !ai)} /><span /></label>
-                        <button className="mini-btn icon-only" style={{ marginLeft: "auto" }} title="ლინკის კოპირება" onClick={() => copyLink(p)}><IconCopyV /></button>
+                    </div>
+                    <div className="pcell pcell--cat"><span className="catPill" style={{ "--hue": hueOf(p.cat) } as React.CSSProperties}>{nameOf(p.cat)}</span></div>
+                    <div className="pcell pcell--price">
+                      {price === 0 ? <span className="noPrice">ფასი არ არის</span> : <span className="pprice">{fmtP(price)} <span className="cur">₾</span>{p.sizes.length > 1 && <span className="fromTag" title="ფასი ვარიანტებიდან">+</span>}</span>}
+                    </div>
+                    {stockEnabled && <div className="pcell pcell--stock"><PStockPill stock={stockOf(p)} /></div>}
+                    <div className="pcell pcell--tog"><PSwitch on={p.visible !== false} onChange={(v) => onToggle(p, "live", v)} title="საიტზე" /></div>
+                    <div className="pcell pcell--tog"><PSwitch on={p.inAi !== false} onChange={(v) => onToggle(p, "ai", v)} title="AI" /></div>
+                    <div className="pcell pcell--act" onClick={(e) => e.stopPropagation()}>
+                      <div className="rowActions rowActions--show">
+                        <button className="iconBtn2" title="რედაქტირება" onClick={() => onEdit(p.id)}><IconPencilV s={15} /></button>
+                        <button className="iconBtn2" title="დუბლირება" onClick={() => duplicate(p)}><IconFolderV s={15} /></button>
+                        <button className="iconBtn2 iconBtn2--del" title="წაშლა" onClick={() => removeOne(p)}><IconTrashV s={15} /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="pbgrid">
+              {filtered.map((p) => {
+                const b = brandById(p.brand); const selected = sel.has(p.id); const price = minPrice(p);
+                return (
+                  <div className={"pbcard" + (selected ? " is-sel" : "")} key={p.id}>
+                    <div className="pcardTop" style={{ "--hue": hueOf(p.cat) } as React.CSSProperties}>
+                      <button className={"pcheck pcheck--card" + (selected ? " is-checked" : "")} onClick={() => onSelectRow(p.id)}>{selected && <IconCheckV s={13} />}</button>
+                      <PThumb name={p.name} hue={hueOf(p.cat)} big />
+                      <div className="pcardActions">
+                        <button className="iconBtn2" onClick={() => onEdit(p.id)} title="რედაქტირება"><IconPencilV s={14} /></button>
+                        <button className="iconBtn2 iconBtn2--del" onClick={() => removeOne(p)} title="წაშლა"><IconTrashV s={14} /></button>
+                      </div>
+                      {p.visible === false && <span className="hiddenTag hiddenTag--card">დამალული</span>}
+                    </div>
+                    <div className="pcardBody">
+                      <span className="catPill" style={{ "--hue": hueOf(p.cat) } as React.CSSProperties}>{nameOf(p.cat)}</span>
+                      <div className="pcardName" onClick={() => onEdit(p.id)} style={{ cursor: "pointer" }}>{p.name}</div>
+                      <div className="pcardDesc">{p.subtitle || p.desc || ""}</div>
+                      <div className="pcardFoot">
+                        <span className="pprice">{price === 0 ? <span className="noPrice">—</span> : <>{fmtP(price)} <span className="cur">₾</span></>}</span>
+                        {stockEnabled && <PStockPill stock={stockOf(p)} />}
+                      </div>
+                      <div className="pcardToggles">
+                        <label className="togLbl"><PSwitch on={p.visible !== false} onChange={(v) => onToggle(p, "live", v)} /> საიტზე</label>
+                        <label className="togLbl"><PSwitch on={p.inAi !== false} onChange={(v) => onToggle(p, "ai", v)} /> AI</label>
                       </div>
                     </div>
                   </div>
@@ -978,7 +1118,7 @@ function ProductsView({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

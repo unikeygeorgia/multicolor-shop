@@ -40,7 +40,7 @@ import type {
   Surface,
 } from "@/lib/types";
 
-const DEFAULT_SETTINGS: AppSettings = { pricesHidden: true, commerceEnabled: false };
+const DEFAULT_SETTINGS: AppSettings = { pricesHidden: true, commerceEnabled: false, stockEnabled: true };
 
 const CART_KEY = "mc_cart_v1";
 
@@ -81,7 +81,7 @@ interface StoreValue {
   usingSupabase: boolean;
   db: MulticolorData;
   settings: AppSettings;
-  updateSetting: (key: "prices_hidden" | "commerce_enabled", value: boolean) => void;
+  updateSetting: (key: "prices_hidden" | "commerce_enabled" | "stock_enabled", value: boolean) => void;
 
   brandById: (id: string) => Brand | undefined;
   catById: (id: string) => Category | undefined;
@@ -166,6 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSettings({
           pricesHidden: m["prices_hidden"] === undefined ? true : Boolean(m["prices_hidden"]),
           commerceEnabled: m["commerce_enabled"] === undefined ? false : Boolean(m["commerce_enabled"]),
+          stockEnabled: m["stock_enabled"] === undefined ? true : Boolean(m["stock_enabled"]),
         });
       }
 
@@ -480,9 +481,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [loadFromSupabase]);
 
   const updateSetting = useCallback(
-    (key: "prices_hidden" | "commerce_enabled", value: boolean) => {
+    (key: "prices_hidden" | "commerce_enabled" | "stock_enabled", value: boolean) => {
       setSettings((prev) =>
-        key === "prices_hidden" ? { ...prev, pricesHidden: value } : { ...prev, commerceEnabled: value }
+        key === "prices_hidden" ? { ...prev, pricesHidden: value }
+          : key === "commerce_enabled" ? { ...prev, commerceEnabled: value }
+          : { ...prev, stockEnabled: value }
       );
       if (supabase)
         supabase
