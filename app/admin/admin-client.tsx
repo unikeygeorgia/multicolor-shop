@@ -236,18 +236,6 @@ export function AdminClient() {
 
   const newCount = orders.filter((o) => o.status === "new").length;
 
-  // sold units + earning per product, from orders
-  const soldMap = new Map<string, number>();
-  const earnMap = new Map<string, number>();
-  orders.forEach((o) =>
-    o.items.forEach((i) => {
-      const p = prodById(i.pid);
-      if (!p) return;
-      const sz = p.sizes.find((s) => s.l === i.size) || p.sizes[0];
-      soldMap.set(i.pid, (soldMap.get(i.pid) || 0) + i.qty);
-      earnMap.set(i.pid, (earnMap.get(i.pid) || 0) + salePrice(p, sz?.p ?? 0) * i.qty);
-    })
-  );
 
   const initials = (user?.email || "ა").slice(0, 1);
 
@@ -338,7 +326,7 @@ export function AdminClient() {
                 <OrdersView orders={orders} orderTotal={orderTotal} setOrderStatus={setOrderStatus} onOrder={(id) => setEditor({ kind: "order", id })} />
               )}
               {view === "products" && (
-                <ProductsView db={db} brandById={brandById} catById={catById} soldMap={soldMap} earnMap={earnMap} query={query} setQuery={setQuery} onEdit={(id) => setEditor({ kind: "product", id })} />
+                <ProductsView db={db} brandById={brandById} catById={catById} query={query} setQuery={setQuery} onEdit={(id) => setEditor({ kind: "product", id })} upsertProduct={upsertProduct} pricesHidden={store.settings.pricesHidden} toast={store.toast} />
               )}
               {view === "customers" && <CustomersView orders={orders} orderTotal={orderTotal} />}
               {view === "calendar" && <SalesCalendarView orders={orders} orderTotal={orderTotal} />}
@@ -781,18 +769,22 @@ function OrderDetail({
 /* ============================================================
    Products
    ============================================================ */
+const IconCopyV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></Ico2>);
+
 function ProductsView({
-  db, brandById, catById, soldMap, earnMap, query, setQuery, onEdit,
+  db, brandById, catById, query, setQuery, onEdit, upsertProduct, pricesHidden, toast,
 }: {
   db: MulticolorData;
   brandById: (id: string) => Brand | undefined;
   catById: (id: string) => { name: string } | undefined;
-  soldMap: Map<string, number>;
-  earnMap: Map<string, number>;
   query: string;
   setQuery: (v: string) => void;
   onEdit: (id: string | null) => void;
+  upsertProduct: (p: Product) => void;
+  pricesHidden: boolean;
+  toast: (n: React.ReactNode) => void;
 }) {
+  void setQuery;
   const priceMax = Math.ceil(Math.max(10, ...db.products.map((p) => minPrice(p))) / 10) * 10;
   const [mode, setMode] = useState<"list" | "grid">("list");
   const [cats, setCats] = useState<string[]>([]);
@@ -806,9 +798,9 @@ function ProductsView({
   const list = db.products.filter((p) => {
     if (cats.length && !cats.includes(p.cat)) return false;
     if (brands.length && !brands.includes(p.brand)) return false;
-    if (minPrice(p) > pmax) return false;
+    if (!pricesHidden && minPrice(p) > pmax) return false;
     if (query) {
-      const hay = (p.name + " " + (brandById(p.brand)?.name || "")).toLowerCase();
+      const hay = (p.name + " " + (p.subtitle || "") + " " + (brandById(p.brand)?.name || "")).toLowerCase();
       if (!hay.includes(query.toLowerCase())) return false;
     }
     return true;
@@ -819,18 +811,23 @@ function ProductsView({
 
   const allSelected = list.length > 0 && list.every((p) => sel.has(p.id));
   const toggleAll = () => setSel(allSelected ? new Set() : new Set(list.map((p) => p.id)));
-  const toggleOne = (id: string) => {
-    const n = new Set(sel);
-    if (n.has(id)) n.delete(id); else n.add(id);
-    setSel(n);
+  const toggleOne = (id: string) => { const n = new Set(sel); if (n.has(id)) n.delete(id); else n.add(id); setSel(n); };
+
+  const setVisible = (p: Product, v: boolean) => upsertProduct({ ...p, visible: v });
+  const setInAi = (p: Product, v: boolean) => upsertProduct({ ...p, inAi: v });
+  const copyLink = (p: Product) => {
+    const url = `https://multicolorge.vercel.app/product?slug=${p.slug || p.id}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
+    toast(<><span className="tick">✓</span> ლინკი დაკოპირდა</>);
   };
 
   const exportCsv = () => {
     const rows = sel.size ? list.filter((p) => sel.has(p.id)) : list;
-    const head = ["id", "სახელი", "ბრენდი", "კატეგორია", "ფასი", "გაყიდული", "შემოსავალი"];
+    const head = ["id", "სახელი", "ქვესათაური", "ბრენდი", "კატეგორია", "ფასი", "საიტზე", "AI", "ლინკი"];
     const data = rows.map((p) => [
-      p.id, p.name, brandById(p.brand)?.name || "", catById(p.cat)?.name || "",
-      minPrice(p), soldMap.get(p.id) || 0, (earnMap.get(p.id) || 0).toFixed(2),
+      p.id, p.name, p.subtitle || "", brandById(p.brand)?.name || "", catById(p.cat)?.name || "",
+      minPrice(p), p.visible !== false ? "კი" : "არა", p.inAi !== false ? "კი" : "არა",
+      `https://multicolorge.vercel.app/product?slug=${p.slug || p.id}`,
     ]);
     const csv = [head, ...data].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
@@ -841,7 +838,6 @@ function ProductsView({
   };
 
   const clearAll = () => { setCats([]); setBrands([]); setPmax(priceMax); };
-  const sorted = [...db.categories].sort((a, b) => a.order - b.order);
 
   return (
     <>
@@ -864,18 +860,20 @@ function ProductsView({
           </div>
           <div className="fsec">
             <div className="fsec-h">კატეგორია</div>
-            {sorted.map((c) => (
-              <label className="fopt" key={c.id}>
+            {flatCatTree(db.categories).map(({ c, depth }) => (
+              <label className="fopt" key={c.id} style={{ paddingLeft: depth * 14 }}>
                 <input type="checkbox" checked={cats.includes(c.id)} onChange={() => toggle(cats, setCats, c.id)} />
-                {c.name}<span className="cnt">{catCount(c.id)}</span>
+                {depth > 0 && <span style={{ color: "var(--muted)", marginRight: 2 }}>└</span>}{c.name}<span className="cnt">{catCount(c.id)}</span>
               </label>
             ))}
           </div>
-          <div className="fsec">
-            <div className="fsec-h">ფასი (₾)</div>
-            <div className="price-vals num"><span>0</span><span>{pmax} ₾</span></div>
-            <input type="range" min={0} max={priceMax} step={5} value={pmax} onChange={(e) => setPmax(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
-          </div>
+          {!pricesHidden && (
+            <div className="fsec">
+              <div className="fsec-h">ფასი (₾)</div>
+              <div className="price-vals num"><span>0</span><span>{pmax} ₾</span></div>
+              <input type="range" min={0} max={priceMax} step={5} value={pmax} onChange={(e) => setPmax(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
+            </div>
+          )}
           <div className="fsec">
             <div className="fsec-h">ბრენდი</div>
             {db.brands.map((b) => (
@@ -890,9 +888,7 @@ function ProductsView({
         <div className="acard2">
           <div className="acard2-head">
             <h3>პროდუქტები <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 13 }}>({list.length})</span></h3>
-            <div className="right">
-              <button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button>
-            </div>
+            <div className="right"><button className="mini-btn" onClick={exportCsv}><IDownload /> Export</button></div>
           </div>
 
           {sel.size > 0 && (
@@ -910,15 +906,16 @@ function ProductsView({
                   <th style={{ width: 36 }}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
                   <th>პროდუქტი</th>
                   <th>ფასი</th>
-                  <th>გაყიდული</th>
-                  <th>სტატუსი</th>
-                  <th>შემოსავალი</th>
+                  <th>კატეგორია</th>
+                  <th style={{ textAlign: "center" }}>საიტზე</th>
+                  <th style={{ textAlign: "center" }}>AI</th>
+                  <th style={{ width: 70 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {list.map((p) => {
-                  const stock = p.sizes.reduce((a, s) => a + s.s, 0);
                   const b = brandById(p.brand);
+                  const vis = p.visible !== false; const ai = p.inAi !== false;
                   return (
                     <tr className="rowlink" key={p.id} onClick={() => onEdit(p.id)}>
                       <td onClick={(e) => e.stopPropagation()}>
@@ -930,14 +927,21 @@ function ProductsView({
                           <img src={prodImg(p, b, 80, 80)} alt="" />
                           <div>
                             <div className="nm">{p.name}</div>
-                            <div className="br">{b ? b.name : ""}</div>
+                            <div className="br">{p.subtitle ? p.subtitle + " · " : ""}{b ? b.name : ""}</div>
                           </div>
                         </div>
                       </td>
                       <td className="num">{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</td>
-                      <td className="num">{soldMap.get(p.id) || 0} ც</td>
-                      <td><span className={`stockpill ${stock > 0 ? "in" : "out"}`}>{stock > 0 ? "მარაგშია" : "ამოწურულია"}</span></td>
-                      <td className="num">{fmt(earnMap.get(p.id) || 0)}</td>
+                      <td>{catById(p.cat)?.name || "—"}</td>
+                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                        <label className="tgl tgl-sm"><input type="checkbox" checked={vis} onChange={() => setVisible(p, !vis)} /><span /></label>
+                      </td>
+                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                        <label className="tgl tgl-sm"><input type="checkbox" checked={ai} onChange={() => setInAi(p, !ai)} /><span /></label>
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button className="mini-btn icon-only" title="ლინკის კოპირება" onClick={() => copyLink(p)}><IconCopyV /></button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -947,17 +951,24 @@ function ProductsView({
             <div className="pgrid-adm">
               {list.map((p) => {
                 const b = brandById(p.brand);
+                const vis = p.visible !== false; const ai = p.inAi !== false;
                 return (
-                  <div className="pcard-adm" key={p.id} onClick={() => onEdit(p.id)}>
-                    <div className="ph">
+                  <div className="pcard-adm" key={p.id}>
+                    <div className="ph" onClick={() => onEdit(p.id)} style={{ cursor: "pointer" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={prodImg(p, b, 300, 300)} alt="" />
                     </div>
                     <div className="b">
-                      <div className="nm">{p.name}</div>
-                      <div className="meta">
-                        <span className="price">{fmt(salePrice(p, minPrice(p)))}</span>
-                        <span>{soldMap.get(p.id) || 0} გაყ.</span>
+                      <div className="nm" onClick={() => onEdit(p.id)} style={{ cursor: "pointer" }}>{p.name}</div>
+                      {p.subtitle && <div className="br" style={{ fontSize: 12, color: "var(--muted)" }}>{p.subtitle}</div>}
+                      <div className="mcxmeta" style={{ marginTop: 4 }}>
+                        <span className="price">{fmt(salePrice(p, minPrice(p)))}{p.sizes.length > 1 ? "+" : ""}</span>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>{catById(p.cat)?.name || "—"}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                        <label className="tgl tgl-sm" title="საიტზე"><input type="checkbox" checked={vis} onChange={() => setVisible(p, !vis)} /><span /></label>
+                        <label className="tgl tgl-sm" title="AI ბაზა"><input type="checkbox" checked={ai} onChange={() => setInAi(p, !ai)} /><span /></label>
+                        <button className="mini-btn icon-only" style={{ marginLeft: "auto" }} title="ლინკის კოპირება" onClick={() => copyLink(p)}><IconCopyV /></button>
                       </div>
                     </div>
                   </div>
