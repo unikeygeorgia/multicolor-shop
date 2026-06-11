@@ -306,9 +306,9 @@ export function AdminClient() {
         </div>
       </aside>
 
-      <div className="main">
+      <div className="mcxmain">
         <header className="topbar">
-          <div className="crumbs"><span>{crumbSection}</span><IconChevR s={14} /><strong>{VIEW_TITLES[view]}</strong></div>
+          <div className="mcxcrumbs"><span>{crumbSection}</span><IconChevR s={14} /><strong>{VIEW_TITLES[view]}</strong></div>
           <div className="topSearch">
             <IconSearchV s={16} />
             <input placeholder="ძებნა პროდუქტებში…" value={query} onChange={(e) => { setQuery(e.target.value); setView("products"); }} />
@@ -1527,7 +1527,7 @@ function InlineAdd({ hue, onCommit, onCancel }: { hue: number; onCommit: (n: str
   const commit = () => { const t = v.trim(); if (t) onCommit(t); else onCancel(); };
   return (
     <div className="row row--add" style={{ "--hue": hue } as React.CSSProperties}>
-      <span className="dot" />
+      <span className="mcxdot" />
       <input ref={ref} className="inlineInput" value={v} placeholder="ქვეკატეგორიის სახელი…"
         onChange={(e) => setV(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") onCancel(); }}
@@ -1581,7 +1581,7 @@ function TreeNode({ node, depth, hue, q, expandedFilter }: { node: CNode; depth:
         {hasKids ? (
           <button className={"disclose" + (expanded ? " is-open" : "")} onClick={() => b.toggle(node.id)}><IconChevR /></button>
         ) : (<span className="disclose disclose--leaf" />)}
-        <span className={"chip" + (depth === 0 ? " chip--root" : "")}>{initial}</span>
+        <span className={"mcxchip" + (depth === 0 ? " mcxchip--root" : "")}>{initial}</span>
         {isEditing ? (
           <input className="inlineInput" autoFocus value={editVal}
             onChange={(e) => setEditVal(e.target.value)}
@@ -1590,9 +1590,9 @@ function TreeNode({ node, depth, hue, q, expandedFilter }: { node: CNode; depth:
         ) : (
           <button className="name" onDoubleClick={() => b.setEditing(node.id)} title={node.name}><CHighlight text={node.name} q={q} /></button>
         )}
-        <span className="meta">
-          {subN > 0 && <span className="pill pill--sub">{subN} ქვეკატეგორია</span>}
-          <span className={"pill" + (total === 0 ? " pill--empty" : "")}>{total === 0 ? "ცარიელი" : total + " პროდუქტი"}</span>
+        <span className="mcxmeta">
+          {subN > 0 && <span className="mcxpill mcxpill--sub">{subN} ქვეკატეგორია</span>}
+          <span className={"mcxpill" + (total === 0 ? " mcxpill--empty" : "")}>{total === 0 ? "ცარიელი" : total + " პროდუქტი"}</span>
         </span>
         <span className="flex1" />
         {confirming ? (
@@ -1611,7 +1611,7 @@ function TreeNode({ node, depth, hue, q, expandedFilter }: { node: CNode; depth:
       </div>
       {(expanded && hasKids) || adding ? (
         <div className="kids">
-          <span className="rail" style={{ "--hue": hue } as React.CSSProperties} />
+          <span className="mcxrail" style={{ "--hue": hue } as React.CSSProperties} />
           {adding && <InlineAdd hue={hue} onCommit={(name) => b.commitAdd(node.id, name)} onCancel={() => b.startAdd(null)} />}
           {expanded && node.children.map((c) => (
             <TreeNode key={c.id} node={c} depth={depth + 1} hue={hue} q={q} expandedFilter={expandedFilter} />
@@ -1762,11 +1762,11 @@ function CatsView({
             <p className="pageSub">გადაათრიეთ რიგის შესაცვლელად, ჩააგდეთ კატეგორიაში მის ქვეშ მოსათავსებლად. დააჭირეთ <span className="inlineGlyph"><IconCornerAddV s={13} /></span> ქვეკატეგორიის დასამატებლად.</p>
           </div>
           <div className="statRow">
-            <div className="stat"><span className="statNum">{stats.cats}</span><span className="statLbl">კატეგორია</span></div>
+            <div className="mcxstat"><span className="statNum">{stats.cats}</span><span className="statLbl">კატეგორია</span></div>
             <div className="statDiv" />
-            <div className="stat"><span className="statNum">{stats.subs}</span><span className="statLbl">ქვეკატეგორია</span></div>
+            <div className="mcxstat"><span className="statNum">{stats.subs}</span><span className="statLbl">ქვეკატეგორია</span></div>
             <div className="statDiv" />
-            <div className="stat"><span className="statNum">{prodTotal}</span><span className="statLbl">პროდუქტი</span></div>
+            <div className="mcxstat"><span className="statNum">{prodTotal}</span><span className="statLbl">პროდუქტი</span></div>
           </div>
         </header>
 
