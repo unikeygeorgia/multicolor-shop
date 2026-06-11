@@ -2135,7 +2135,7 @@ body.admin { background: #f4f3f0; }
 .mcx-app .navItem.is-active { background: color-mix(in oklab, var(--accent) 13%, var(--surface)); color: var(--accent); font-weight: 600; }
 .mcx-app.is-dark .navItem.is-active { background: color-mix(in oklab, var(--accent) 22%, transparent); color: oklch(0.85 0.12 285); }
 .mcx-app .navItem.is-active::before { content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--accent); }
-.mcx-app .navItem svg { flex-shrink: 0; }
+.mcx-app .navItem svg { width: 19px; height: 19px; flex-shrink: 0; }
 .mcx-app .navItem > span:not(.navBadge) { flex: 1; min-width: 0; }
 .mcx-app .navBadge { margin-left: auto; font-size: 11px; font-weight: 600; background: var(--surface-3); color: var(--muted); border-radius: 20px; padding: 1px 8px; min-width: 22px; text-align: center; }
 .mcx-app .navItem.is-active .navBadge { background: var(--accent); color: #fff; }
