@@ -204,7 +204,7 @@ export function AdminClient() {
           </nav>
           <div className="foot">
             <button className={view === "settings" ? "on" : ""} onClick={() => setView("settings")}><IGear /> პარამეტრები</button>
-            <a href="https://multicolor.ge"><IStore /> მაღაზიის ნახვა</a>
+            <a href="https://multicolor-ge.vercel.app"><IStore /> მაღაზიის ნახვა</a>
             <button onClick={() => reload()}><IRefresh /> განახლება</button>
             <button onClick={async () => { await signOut(); }}><IOut /> გასვლა</button>
           </div>
