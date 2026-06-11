@@ -15,17 +15,19 @@ export interface UnichatProduct {
   subtitle?: string;
   description: string;
   attributes: Record<string, string>;
+  /** every available volume/size with its own price */
+  variants: { label: string; price: number }[];
+  /** "from" price = minimum across variants */
   price: number;
   currency: "GEL";
   in_stock: boolean;
-  url: string;
+  /** usage instructions — the bot shares these only after the user agrees */
+  usage_instructions?: string;
   image_url?: string;
   /** hidden knowledge for the bot — never shown publicly */
   ai_comment?: string;
   updated_at: string;
 }
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://multicolor.ge";
 
 const clean = (s?: string | null) => (s || "").trim();
 
@@ -38,24 +40,18 @@ export function toUnichatProduct(p: Product, brands: Brand[], cats: Category[]):
   const brand = brands.find((b) => b.id === p.brand);
   const cat = cats.find((c) => c.id === p.cat);
 
-  // detect the tools branch (sizes vs volumes label)
-  let cur: string | null | undefined = p.cat, isTools = false, g = 0;
-  while (cur && g++ < 40) {
-    const c = cats.find((x) => x.id === cur);
-    if (!c) break;
-    if (!c.parentId) { isTools = c.id === "tools"; break; }
-    cur = c.parentId;
-  }
-
   const attributes: Record<string, string> = {};
   if (brand?.name) attributes["ბრენდი"] = brand.name;
   if (cat?.name) attributes["კატეგორია"] = cat.name;
   const colors = (p.colors || []).map((c) => c.n).filter(Boolean).join(", ");
   if (colors) attributes["ფერი"] = colors;
-  const variants = (p.sizes || []).map((s) => s.l).filter((l) => l && l !== "—").join(", ");
-  if (variants) attributes[isTools ? "ზომა" : "მოცულობა"] = variants;
 
-  const prices = (p.sizes || []).map((s) => s.p).filter((x) => x > 0);
+  // each volume/size with its own price (so the bot can quote per-variant)
+  const variants = (p.sizes || [])
+    .filter((s) => s.l && s.l !== "—")
+    .map((s) => ({ label: s.l, price: s.p }));
+
+  const prices = variants.map((v) => v.price).filter((x) => x > 0);
   const price = prices.length ? Math.min(...prices) : 0;
 
   const ai_comment = [p.aiComment, p.aiInfo].map(clean).filter(Boolean).join("\n\n");
@@ -64,12 +60,13 @@ export function toUnichatProduct(p: Product, brands: Brand[], cats: Category[]):
     external_id: p.id,
     title: p.name,
     subtitle: clean(p.subtitle) || undefined,
-    description: [p.desc, p.usage].map(clean).filter(Boolean).join("\n\n"),
+    description: clean(p.desc),
     attributes,
+    variants,
     price,
     currency: "GEL",
     in_stock: p.visible !== false,
-    url: `${SITE}/product?slug=${p.slug || p.id}`,
+    usage_instructions: clean(p.usage) || undefined,
     image_url: p.image || undefined,
     ai_comment: ai_comment || undefined,
     updated_at: new Date().toISOString(),
