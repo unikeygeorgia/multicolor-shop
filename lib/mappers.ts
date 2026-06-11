@@ -54,7 +54,8 @@ export function rowToCategory(r: Record<string, unknown>): Category {
   return {
     id: r.id as string,
     name: r.name as string,
-    group: r.group as Category["group"],
+    parentId: (r.parent_id as string) || null,
+    group: (r.group as Category["group"]) ?? null,
     facets: (r.facets as string[]) || [],
     order: (r.order as number) ?? 0,
     sub: (r.sub as string[]) || undefined,
@@ -64,7 +65,8 @@ export function categoryToRow(c: Category) {
   return {
     id: c.id,
     name: c.name,
-    group: c.group,
+    parent_id: c.parentId ?? null,
+    group: c.group ?? null,
     facets: c.facets,
     order: c.order,
     sub: c.sub ?? null,

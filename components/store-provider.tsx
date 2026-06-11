@@ -107,6 +107,8 @@ interface StoreValue {
   upsertBrand: (b: Brand) => void;
   deleteBrand: (id: string) => void;
   updateCategory: (c: Category) => void;
+  upsertCategory: (c: Category) => void;
+  deleteCategory: (id: string) => void;
   savePromotion: (x: Promotion, oldTarget?: string) => void;
   deletePromotion: (x: Promotion) => void;
   togglePromotion: (id: string, active: boolean) => void;
@@ -359,6 +361,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Create-or-update (inserts when the id is new — used by the admin tree editor).
+  const upsertCategory = useCallback((c: Category) => {
+    setDb((prev) => {
+      const next = clone(prev);
+      const idx = next.categories.findIndex((x) => x.id === c.id);
+      if (idx >= 0) next.categories[idx] = c;
+      else next.categories.push(c);
+      return next;
+    });
+    if (supabase) supabase.from("categories").upsert(categoryToRow(c)).then(({ error }) => {
+      if (error) console.error("category upsert failed", error);
+    });
+  }, []);
+
+  const deleteCategory = useCallback((id: string) => {
+    setDb((prev) => {
+      const next = clone(prev);
+      // re-parent any direct children to the deleted node's parent so the
+      // tree never breaks; clears the parent on products is left to the admin.
+      const target = next.categories.find((x) => x.id === id);
+      const newParent = target?.parentId ?? null;
+      next.categories = next.categories
+        .filter((c) => c.id !== id)
+        .map((c) => (c.parentId === id ? { ...c, parentId: newParent } : c));
+      return next;
+    });
+    if (supabase) supabase.from("categories").delete().eq("id", id).then(({ error }) => {
+      if (error) console.error("category delete failed", error);
+    });
+  }, []);
+
   const savePromotion = useCallback(
     (x: Promotion, oldTarget?: string) => {
       setDb((prev) => {
@@ -489,6 +522,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       upsertBrand,
       deleteBrand,
       updateCategory,
+      upsertCategory,
+      deleteCategory,
       savePromotion,
       deletePromotion,
       togglePromotion,
@@ -500,7 +535,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hydrated, db, settings, updateSetting, brandById, catById, prodById, surfName, cart, count,
       addToCart, quickAdd, addBundle, updateCartQty, removeCartLine, clearCart,
       orders, pushOrder, setOrderStatus, upsertProduct, deleteProduct, upsertBrand,
-      deleteBrand, updateCategory, savePromotion, deletePromotion, togglePromotion,
+      deleteBrand, updateCategory, upsertCategory, deleteCategory, savePromotion, deletePromotion, togglePromotion,
       updateHero, reload, toast,
     ]
   );

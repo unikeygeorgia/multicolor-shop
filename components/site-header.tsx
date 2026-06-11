@@ -18,17 +18,22 @@ import {
 } from "@/components/icons";
 
 function MegaColumns({ db }: { db: MulticolorData }) {
+  const tops = db.categories
+    .filter((c) => !c.parentId)
+    .sort((a, b) => a.order - b.order);
   return (
     <>
-      {db.catGroups.map((g) => {
-        const cats = db.categories
-          .filter((c) => c.group === g.id)
+      {tops.map((top) => {
+        const children = db.categories
+          .filter((c) => c.parentId === top.id)
           .sort((a, b) => a.order - b.order);
         return (
-          <div key={g.id}>
-            <h5>{g.name}</h5>
+          <div key={top.id}>
+            <h5>
+              <Link href={`/shop?cat=${top.id}`}>{top.name}</Link>
+            </h5>
             <ul>
-              {cats.map((c) => (
+              {children.map((c) => (
                 <li key={c.id}>
                   <Link href={`/shop?cat=${c.id}`}>{c.name}</Link>
                 </li>

@@ -51,6 +51,26 @@ function uid(prefix: string) {
   return prefix + "-" + Math.random().toString(36).slice(2, 7);
 }
 
+/** Flatten categories into tree order with a depth for each node. */
+function flatCatTree(cats: Category[]): { c: Category; depth: number }[] {
+  const kids = new Map<string, Category[]>();
+  cats.forEach((c) => {
+    const k = c.parentId || "";
+    if (!kids.has(k)) kids.set(k, []);
+    kids.get(k)!.push(c);
+  });
+  kids.forEach((arr) => arr.sort((a, b) => a.order - b.order));
+  const out: { c: Category; depth: number }[] = [];
+  const walk = (parent: string, depth: number) => {
+    (kids.get(parent) || []).forEach((c) => {
+      out.push({ c, depth });
+      walk(c.id, depth + 1);
+    });
+  };
+  walk("", 0);
+  return out;
+}
+
 /* ---------- icons ---------- */
 const si = { fill: "none" as const, stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 const IDash = () => (<svg viewBox="0 0 24 24" {...si}><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>);
@@ -90,6 +110,7 @@ export function AdminClient() {
   const {
     db, orders, prodById, brandById, catById, setOrderStatus,
     upsertProduct, deleteProduct, upsertBrand, deleteBrand, updateCategory,
+    upsertCategory, deleteCategory,
     savePromotion, deletePromotion, togglePromotion, updateHero, reload,
   } = store;
   const [view, setView] = useState<View>("dash");
@@ -204,7 +225,7 @@ export function AdminClient() {
           </nav>
           <div className="foot">
             <button className={view === "settings" ? "on" : ""} onClick={() => setView("settings")}><IGear /> პარამეტრები</button>
-            <a href="https://multicolor-ge.vercel.app"><IStore /> მაღაზიის ნახვა</a>
+            <a href="https://multicolorge.vercel.app"><IStore /> მაღაზიის ნახვა</a>
             <button onClick={() => reload()}><IRefresh /> განახლება</button>
             <button onClick={async () => { await signOut(); }}><IOut /> გასვლა</button>
           </div>
@@ -254,7 +275,7 @@ export function AdminClient() {
             {view === "brands" && (
               <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />
             )}
-            {view === "cats" && <CatsView db={db} updateCategory={updateCategory} toast={store.toast} />}
+            {view === "cats" && <CatsView db={db} updateCategory={updateCategory} upsertCategory={upsertCategory} deleteCategory={deleteCategory} toast={store.toast} />}
             {view === "promos" && (
               <PromosView
                 db={db}
@@ -1110,7 +1131,9 @@ function ProductEditor({
           </div>
           <div className="field"><label>კატეგორია</label>
             <select value={cat} onChange={(e) => setCat(e.target.value)}>
-              {[...db.categories].sort((a, b) => a.order - b.order).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {flatCatTree(db.categories).map(({ c, depth }) => (
+                <option key={c.id} value={c.id}>{`${" ".repeat(depth * 2)}${depth ? "└ " : ""}${c.name}`}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -1281,57 +1304,153 @@ function BrandEditor({
 const FACETS: [string, string][] = [["size", "ზომა"], ["color", "ფერი"], ["surface", "ზედაპირი"]];
 
 function CatsView({
-  db, updateCategory, toast,
+  db, updateCategory, upsertCategory, deleteCategory, toast,
 }: {
   db: MulticolorData;
   updateCategory: (c: Category) => void;
+  upsertCategory: (c: Category) => void;
+  deleteCategory: (id: string) => void;
   toast: (n: React.ReactNode) => void;
 }) {
-  const sorted = [...db.categories].sort((a, b) => a.order - b.order);
+  const tree = flatCatTree(db.categories);
 
-  const toggleFacet = (cid: string, f: string, on: boolean) => {
-    const c = db.categories.find((x) => x.id === cid);
-    if (!c) return;
-    const facets = on
-      ? (c.facets.includes(f) ? c.facets : [...c.facets, f])
-      : c.facets.filter((x) => x !== f);
-    updateCategory({ ...c, facets });
-    toast(<><span className="tick">✓</span> ფილტრები განახლდა</>);
+  /* ---- add / edit form ---- */
+  const blank = { id: "", name: "", parentId: "", facets: ["size", "color", "surface"] as string[] };
+  const [form, setForm] = useState(blank);
+  const editing = !!form.id;
+
+  const uniqueId = (name: string) => {
+    let base = slugify(name) || "cat";
+    let id = base, n = 2;
+    while (db.categories.some((c) => c.id === id)) id = `${base}-${n++}`;
+    return id;
   };
-  const move = (id: string, dir: number) => {
-    const s = [...db.categories].sort((a, b) => a.order - b.order);
-    const i = s.findIndex((c) => c.id === id);
+
+  const save = () => {
+    const name = form.name.trim();
+    if (!name) { toast(<>დაასახელე კატეგორია</>); return; }
+    if (editing) {
+      const existing = db.categories.find((c) => c.id === form.id);
+      if (!existing) return;
+      // guard: can't set parent to itself or a descendant
+      const banned = new Set(flatCatTree(db.categories).filter((t) => {
+        let p: string | null | undefined = t.c.id;
+        while (p) { if (p === form.id) return true; p = db.categories.find((x) => x.id === p)?.parentId; }
+        return false;
+      }).map((t) => t.c.id));
+      const parentId = form.parentId && !banned.has(form.parentId) ? form.parentId : null;
+      upsertCategory({ ...existing, name, parentId, facets: form.facets });
+      toast(<><span className="tick">✓</span> კატეგორია განახლდა</>);
+    } else {
+      const order = Math.max(0, ...db.categories.map((c) => c.order)) + 1;
+      upsertCategory({ id: uniqueId(name), name, parentId: form.parentId || null, group: null, facets: form.facets, order });
+      toast(<><span className="tick">✓</span> კატეგორია დაემატა</>);
+    }
+    setForm(blank);
+  };
+
+  const startEdit = (c: Category) =>
+    setForm({ id: c.id, name: c.name, parentId: c.parentId || "", facets: [...c.facets] });
+
+  const removeCat = (c: Category) => {
+    const n = db.products.filter((p) => p.cat === c.id).length;
+    const kids = db.categories.filter((x) => x.parentId === c.id).length;
+    const msg = `წავშალო „${c.name}“?` +
+      (kids ? ` ${kids} ქვე-კატეგორია ამაღლდება ერთი დონით.` : "") +
+      (n ? ` ${n} პროდუქტი დარჩება ამ კატეგორიის გარეშე.` : "");
+    if (!confirm(msg)) return;
+    if (form.id === c.id) setForm(blank);
+    deleteCategory(c.id);
+    toast(<><span className="tick">✓</span> წაიშალა</>);
+  };
+
+  const toggleFormFacet = (f: string, on: boolean) =>
+    setForm((s) => ({ ...s, facets: on ? [...new Set([...s.facets, f])] : s.facets.filter((x) => x !== f) }));
+
+  const toggleFacet = (c: Category, f: string, on: boolean) => {
+    const facets = on ? [...new Set([...c.facets, f])] : c.facets.filter((x) => x !== f);
+    updateCategory({ ...c, facets });
+  };
+
+  // reorder within the same parent (swap order with adjacent sibling)
+  const move = (c: Category, dir: number) => {
+    const sibs = db.categories.filter((x) => (x.parentId || null) === (c.parentId || null)).sort((a, b) => a.order - b.order);
+    const i = sibs.findIndex((x) => x.id === c.id);
     const j = i + dir;
-    if (j < 0 || j >= s.length) return;
-    updateCategory({ ...s[i], order: s[j].order });
-    updateCategory({ ...s[j], order: s[i].order });
+    if (j < 0 || j >= sibs.length) return;
+    updateCategory({ ...sibs[i], order: sibs[j].order });
+    updateCategory({ ...sibs[j], order: sibs[i].order });
   };
 
   return (
     <>
       <div className="adm-head">
-        <h1>კატეგორიები და ფილტრები</h1>
-        <p className="sub">მონიშნე, რომელი ფილტრები (ფასეტები) ეხება თითო კატეგორიას — მაღაზიის ფილტრის ზოლი ავტომატურად აეწყობა. ბრენდი, ფასი და სტატუსი ყველგან ჩანს.</p>
+        <h1>კატეგორიები</h1>
+        <p className="sub">მართე კატეგორიების ხე — დაამატე ახალი, მიანიჭე parent (ძირითადი/ქვე-კატეგორია) და აირჩიე რომელი ფილტრები ეხება. ფერით ფილტრაცია ნაგულისხმევად ჩართულია.</p>
       </div>
+
+      {/* add / edit form */}
+      <div className="acard cat-form">
+        <div className="frow2">
+          <div className="field">
+            <label>{editing ? "სახელის რედაქტირება" : "ახალი კატეგორია"}</label>
+            <input value={form.name} placeholder="მაგ. სინთეთიკური ლაქი" onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} />
+          </div>
+          <div className="field">
+            <label>ძირითადი (parent) კატეგორია</label>
+            <select value={form.parentId} onChange={(e) => setForm((s) => ({ ...s, parentId: e.target.value }))}>
+              <option value="">— ძირითადი კატეგორია (parent არ აქვს) —</option>
+              {flatCatTree(db.categories)
+                .filter((t) => t.c.id !== form.id)
+                .map(({ c, depth }) => (
+                  <option key={c.id} value={c.id}>{`${" ".repeat(depth * 2)}${depth ? "└ " : ""}${c.name}`}</option>
+                ))}
+            </select>
+          </div>
+        </div>
+        <div className="cat-form-foot">
+          <div className="facets">
+            <span className="dim" style={{ marginRight: 8 }}>ფილტრები:</span>
+            {FACETS.map(([f, l]) => (
+              <label key={f}>
+                <input type="checkbox" checked={form.facets.includes(f)} onChange={(e) => toggleFormFacet(f, e.target.checked)} /> {l}
+              </label>
+            ))}
+          </div>
+          <div className="cat-form-actions">
+            {editing && <button className="btn-line sm" onClick={() => setForm(blank)}>გაუქმება</button>}
+            <button className="btn sm" onClick={save}>{editing ? "შენახვა" : "+ დამატება"}</button>
+          </div>
+        </div>
+      </div>
+
+      {/* tree */}
       <div className="acard">
-        {sorted.map((c, i) => {
+        {tree.map(({ c, depth }) => {
           const n = db.products.filter((p) => p.cat === c.id).length;
-          const g = db.catGroups.find((x) => x.id === c.group);
+          const sibs = db.categories.filter((x) => (x.parentId || null) === (c.parentId || null)).sort((a, b) => a.order - b.order);
+          const idx = sibs.findIndex((x) => x.id === c.id);
           return (
             <div className="cat-row" key={c.id}>
               <div className="ord">
-                <button disabled={i === 0} title="ზემოთ" onClick={() => move(c.id, -1)}>▲</button>
-                <button disabled={i === sorted.length - 1} title="ქვემოთ" onClick={() => move(c.id, 1)}>▼</button>
+                <button disabled={idx === 0} title="ზემოთ" onClick={() => move(c, -1)}>▲</button>
+                <button disabled={idx === sibs.length - 1} title="ქვემოთ" onClick={() => move(c, 1)}>▼</button>
               </div>
-              <div className="cnm">{c.name}<br /><span className="dim">{g ? g.name : ""} · {n} პროდუქტი</span></div>
+              <div className="cnm" style={{ paddingLeft: depth * 18 }}>
+                {depth > 0 && <span className="dim" style={{ marginRight: 6 }}>└</span>}
+                {c.name}
+                <br /><span className="dim">{depth === 0 ? "ძირითადი" : "ქვე-კატეგორია"} · {n} პროდუქტი</span>
+              </div>
               <div className="facets">
                 {FACETS.map(([f, l]) => (
-                  <label className="checks" style={{ display: "inline-flex" }} key={f}>
-                    <label>
-                      <input type="checkbox" checked={c.facets.includes(f)} onChange={(e) => toggleFacet(c.id, f, e.target.checked)} />{l}
-                    </label>
+                  <label key={f}>
+                    <input type="checkbox" checked={c.facets.includes(f)} onChange={(e) => toggleFacet(c, f, e.target.checked)} /> {l}
                   </label>
                 ))}
+              </div>
+              <div className="cat-actions">
+                <button className="btn-line sm" title="რედაქტირება" onClick={() => startEdit(c)}>✎</button>
+                <button className="btn-line sm danger" title="წაშლა" onClick={() => removeCat(c)}>×</button>
               </div>
             </div>
           );

@@ -14,7 +14,10 @@ export interface Brand {
 export interface Category {
   id: string;
   name: string;
-  group: CatGroupId;
+  /** parent category id; null/undefined for a top-level category */
+  parentId?: string | null;
+  /** legacy group bucket — optional, no longer drives navigation */
+  group?: CatGroupId | null;
   facets: string[];
   order: number;
   sub?: string[];

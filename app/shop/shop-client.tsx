@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import type { Product } from "@/lib/types";
+import type { Category, Product } from "@/lib/types";
 import { fmt, hasTag, inStock, minPrice, salePrice } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
 import { ProductCard } from "@/components/product-card";
@@ -47,6 +47,45 @@ export function ShopClient() {
   const effPrice = (p: Product) => salePrice(p, minPrice(p));
   const maxEffPrice = (p: Product) => salePrice(p, Math.max(...p.sizes.map((s) => s.p)));
 
+  /* ---- category tree ---- */
+  const catChildren = useMemo(() => {
+    const m = new Map<string, Category[]>();
+    db.categories.forEach((c) => {
+      const k = c.parentId || "";
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(c);
+    });
+    m.forEach((arr) => arr.sort((a, b) => a.order - b.order));
+    return m;
+  }, [db.categories]);
+
+  const descOf = useCallback(
+    (id: string): string[] => {
+      const out = [id];
+      (catChildren.get(id) || []).forEach((c) => out.push(...descOf(c.id)));
+      return out;
+    },
+    [catChildren]
+  );
+
+  // a selected category also matches all of its sub-categories
+  const selectedCatSet = useMemo(() => {
+    const s = new Set<string>();
+    cats.forEach((id) => descOf(id).forEach((d) => s.add(d)));
+    return s;
+  }, [cats, descOf]);
+
+  const renderCatNodes = (parentId: string | null, depth: number): ReactNode[] =>
+    (catChildren.get(parentId || "") || []).map((c) => (
+      <div key={c.id}>
+        <label className="frow" style={{ paddingLeft: depth * 16 }}>
+          <input type="checkbox" checked={cats.includes(c.id)} onChange={() => setCats((s) => toggle(s, c.id))} />
+          <span>{c.name}</span>
+        </label>
+        {renderCatNodes(c.id, depth + 1)}
+      </div>
+    ));
+
   const activeFacets = useMemo(() => {
     if (cats.length === 0) return ["size", "color", "surface"];
     const set = new Set<string>();
@@ -56,7 +95,7 @@ export function ShopClient() {
 
   const matches = (p: Product) => {
     if (brands.length && !brands.includes(p.brand)) return false;
-    if (cats.length && !cats.includes(p.cat)) return false;
+    if (cats.length && !selectedCatSet.has(p.cat)) return false;
     if (sizes.length && !p.sizes.some((s) => sizes.includes(s.l))) return false;
     if (colors.length && !(p.colors || []).some((c) => colors.includes(c.n))) return false;
     if (surfaces.length) {
@@ -93,10 +132,10 @@ export function ShopClient() {
     () =>
       db.products.filter(
         (p) =>
-          (cats.length === 0 || cats.includes(p.cat)) &&
+          (cats.length === 0 || selectedCatSet.has(p.cat)) &&
           (brands.length === 0 || brands.includes(p.brand))
       ),
-    [db.products, cats, brands]
+    [db.products, cats, brands, selectedCatSet]
   );
   const sizeOptions = useMemo(() => {
     const m = new Map<string, number>();
@@ -145,13 +184,8 @@ export function ShopClient() {
     <div id="filter-body">
       <details className="fgroup" open>
         <summary>კატეგორია</summary>
-        <div className="fbody">
-          {[...db.categories].sort((a, b) => a.order - b.order).map((c) => (
-            <label className="frow" key={c.id}>
-              <input type="checkbox" checked={cats.includes(c.id)} onChange={() => setCats((s) => toggle(s, c.id))} />
-              <span>{c.name}</span>
-            </label>
-          ))}
+        <div className="fbody cat-tree">
+          {renderCatNodes(null, 0)}
         </div>
       </details>
 

@@ -26,13 +26,16 @@ create table if not exists brands (
 );
 
 create table if not exists categories (
-  id      text primary key,
-  name    text not null,
-  "group" text references cat_groups(id),
-  facets  text[] not null default '{}',
-  "order" int    not null default 0,
-  sub     text[]
+  id        text primary key,
+  name      text not null,
+  parent_id text references categories(id) on delete set null,
+  "group"   text references cat_groups(id),
+  facets    text[] not null default '{}',
+  "order"   int    not null default 0,
+  sub       text[]
 );
+-- migration for existing projects:
+alter table categories add column if not exists parent_id text references categories(id) on delete set null;
 
 -- ---- products ---------------------------------------------------------
 -- sizes/colors/specs kept as jsonb to match the design's variant model:
