@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, createContext, useContext } from "react";
 import Link from "next/link";
 
 import { fmt, minPrice, prodImg, salePrice } from "@/lib/utils";
@@ -91,6 +91,76 @@ const IDownload = () => (<svg width="15" height="15" viewBox="0 0 24 24" {...si}
 const IBell = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...si}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>);
 const IMail = () => (<svg width="18" height="18" viewBox="0 0 24 24" {...si}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>);
 
+/* ---------- category-board icons (sized via prop) ---------- */
+const Ico2 = ({ s = 16, sw = 1.8, children }: { s?: number; sw?: number; children: React.ReactNode }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+);
+const IconChevR = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M9 6l6 6-6 6" /></Ico2>);
+const IconPlusV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M12 5v14M5 12h14" /></Ico2>);
+const IconPencilV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></Ico2>);
+const IconTrashV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></Ico2>);
+const IconCheckV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><path d="M20 6L9 17l-5-5" /></Ico2>);
+const IconXV = ({ s = 15 }: { s?: number }) => (<Ico2 s={s}><path d="M18 6L6 18M6 6l12 12" /></Ico2>);
+const IconSearchV = ({ s = 17 }: { s?: number }) => (<Ico2 s={s}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></Ico2>);
+const IconGripV = ({ s = 16 }: { s?: number }) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4" /><circle cx="15" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="18" r="1.4" /></svg>);
+const IconCornerAddV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M4 4v9a4 4 0 0 0 4 4h6" /><path d="M14 13.5v7M10.5 17h7" /></Ico2>);
+const IconExpandV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></Ico2>);
+const IconCollapseV = ({ s = 16 }: { s?: number }) => (<Ico2 s={s}><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3" /></Ico2>);
+const IconSliders = ({ s = 18 }: { s?: number }) => (<Ico2 s={s}><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></Ico2>);
+
+/* gradient brand mark for the admin sidebar */
+function AdminLogo() {
+  return (
+    <div className="brand">
+      <span className="brandMark">
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+          <defs>
+            <linearGradient id="mcadmin" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#ff5d73" /><stop offset="0.35" stopColor="#ffb84d" />
+              <stop offset="0.6" stopColor="#3ec98a" /><stop offset="1" stopColor="#5b8def" />
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="20" height="20" rx="6" fill="url(#mcadmin)" />
+          <circle cx="11" cy="11" r="4.4" fill="#fff" fillOpacity="0.92" />
+        </svg>
+      </span>
+      <span className="brandText"><strong>multicolor</strong><small>ადმინი</small></span>
+    </div>
+  );
+}
+
+/* hue palette for color-coded branches */
+const HUE_PALETTE = [28, 250, 190, 300, 75, 150, 12, 220, 330, 110];
+
+interface Tweaks { dark: boolean; accent: string; density: "compact" | "comfy"; colorCoding: boolean; rails: boolean; }
+const TWEAK_DEFAULTS: Tweaks = { dark: false, accent: "#5b6cff", density: "comfy", colorCoding: true, rails: true };
+const ACCENTS = ["#5b6cff", "#7a5af5", "#e0457b", "#0ea5a3", "#f0820a"];
+
+function TweaksPopover({ tw, patch, onClose }: { tw: Tweaks; patch: (p: Partial<Tweaks>) => void; onClose: () => void }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
+      <div className="twp">
+        <div className="twp-sect">თემა</div>
+        <div className="twp-row"><span>მუქი რეჟიმი</span>
+          <button className={"twp-toggle" + (tw.dark ? " on" : "")} onClick={() => patch({ dark: !tw.dark })}><i /></button>
+        </div>
+        <div className="twp-row"><span>აქცენტი</span>
+          <div className="twp-swatches">{ACCENTS.map((c) => (<button key={c} className={"twp-sw" + (tw.accent === c ? " on" : "")} style={{ background: c }} onClick={() => patch({ accent: c })} />))}</div>
+        </div>
+        <div className="twp-sect">განლაგება</div>
+        <div className="twp-row"><span>სიმჭიდროვე</span>
+          <div className="twp-seg">
+            {(["compact", "comfy"] as const).map((d) => (<button key={d} className={tw.density === d ? "on" : ""} onClick={() => patch({ density: d })}>{d === "compact" ? "მჭიდრო" : "თავისუფალი"}</button>))}
+          </div>
+        </div>
+        <div className="twp-row"><span>ფერადი ბრენჩები</span><button className={"twp-toggle" + (tw.colorCoding ? " on" : "")} onClick={() => patch({ colorCoding: !tw.colorCoding })}><i /></button></div>
+        <div className="twp-row"><span>დამაკავშირებელი ხაზები</span><button className={"twp-toggle" + (tw.rails ? " on" : "")} onClick={() => patch({ rails: !tw.rails })}><i /></button></div>
+      </div>
+    </>
+  );
+}
+
 const VIEW_TITLES: Record<string, string> = {
   dash: "დაფა", products: "პროდუქტები", orders: "შეკვეთები", customers: "მომხმარებლები",
   calendar: "გაყიდვების კალენდარი", brands: "ბრენდები", cats: "კატეგორიები", promos: "აქციები", settings: "პარამეტრები",
@@ -116,6 +186,16 @@ export function AdminClient() {
   const [view, setView] = useState<View>("dash");
   const [editor, setEditor] = useState<Editor>(null);
   const [query, setQuery] = useState("");
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [tw, setTw] = useState<Tweaks>(TWEAK_DEFAULTS);
+
+  // load/persist tweaks
+  useEffect(() => {
+    try { const raw = localStorage.getItem("mc_admin_tweaks"); if (raw) setTw({ ...TWEAK_DEFAULTS, ...JSON.parse(raw) }); } catch { /* ignore */ }
+  }, []);
+  const patchTw = useCallback((patch: Partial<Tweaks>) => {
+    setTw((prev) => { const next = { ...prev, ...patch }; try { localStorage.setItem("mc_admin_tweaks", JSON.stringify(next)); } catch { /* ignore */ } return next; });
+  }, []);
 
   useEffect(() => {
     document.body.classList.add("admin");
@@ -192,106 +272,83 @@ export function AdminClient() {
     },
   ];
 
+  const crumbSection = sections.find((sec) => sec.items.some((i) => i.v === view))?.label || "სისტემა";
+
   return (
-    <div className="admin-root">
-      <div className="adm-layout" data-screen-label="ადმინ პანელი">
-        <aside className="adm-side">
-          <Link className="logo" href="/">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-dark.svg" alt="მულტიკოლორი" />
-            <span className="sub">ადმინი</span>
-          </Link>
-          <div className="adm-search">
-            <ISearch />
-            <input
-              placeholder="ძებნა პროდუქტებში…"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setView("products"); }}
-            />
-            <span className="kbd">⌘K</span>
-          </div>
-          <nav className="adm-nav">
-            {sections.map((sec) => (
-              <div key={sec.label}>
-                <div className="nav-label">{sec.label}</div>
-                {sec.items.map((n) => (
-                  <button key={n.v} className={view === n.v ? "on" : ""} onClick={() => setView(n.v)}>
-                    {n.icon}{n.label}
-                    {n.cnt !== undefined && n.cnt !== "" && <span className="cnt">{n.cnt}</span>}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <div className="foot">
-            <button className={view === "settings" ? "on" : ""} onClick={() => setView("settings")}><IGear /> პარამეტრები</button>
-            <a href="https://multicolorge.vercel.app"><IStore /> მაღაზიის ნახვა</a>
-            <button onClick={() => reload()}><IRefresh /> განახლება</button>
-            <button onClick={async () => { await signOut(); }}><IOut /> გასვლა</button>
-          </div>
-        </aside>
+    <div
+      className={"mcx-app" + (tw.dark ? " is-dark" : "")}
+      data-density={tw.density}
+      data-coding={tw.colorCoding ? "on" : "off"}
+      data-rails={tw.rails ? "on" : "off"}
+      style={{ "--accent": tw.accent } as React.CSSProperties}
+      data-screen-label="ადმინ პანელი"
+    >
+      <aside className="sidebar">
+        <div className="sidebarTop"><AdminLogo /></div>
+        <nav className="nav">
+          {sections.map((sec) => (
+            <div className="navGroup" key={sec.label}>
+              <div className="navHead">{sec.label}</div>
+              {sec.items.map((n) => (
+                <button key={n.v} className={"navItem" + (view === n.v ? " is-active" : "")} onClick={() => setView(n.v)}>
+                  {n.icon}<span>{n.label}</span>
+                  {n.cnt !== undefined && n.cnt !== "" && <span className="navBadge">{n.cnt}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebarFoot">
+          <button className={"navItem" + (view === "settings" ? " is-active" : "")} onClick={() => setView("settings")}><IGear /><span>პარამეტრები</span></button>
+          <a className="navItem" href="https://multicolorge.vercel.app"><IStore /><span>მაღაზიის ნახვა</span></a>
+          <button className="navItem" onClick={() => reload()}><IRefresh /><span>განახლება</span></button>
+          <button className="navItem" onClick={async () => { await signOut(); }}><IOut /><span>გასვლა</span></button>
+        </div>
+      </aside>
 
-        <main className="adm-main">
-          <header className="adm-topbar">
-            <h1>{VIEW_TITLES[view]}</h1>
-            <button className="tb-btn" aria-label="ფოსტა"><IMail /></button>
-            <button className="tb-btn" aria-label="შეტყობინებები"><IBell /></button>
-            <div className="tb-user"><span className="av">{initials}</span>{user?.email}</div>
-          </header>
-
-          <div className="adm-body">
-            {view === "dash" && (
-              <Dashboard
-                db={db}
-                orders={orders}
-                orderTotal={orderTotal}
-                prodById={prodById}
-                onOrder={(id) => setEditor({ kind: "order", id })}
-                onEditProduct={(id) => setEditor({ kind: "product", id })}
-              />
-            )}
-            {view === "orders" && (
-              <OrdersView
-                orders={orders}
-                orderTotal={orderTotal}
-                setOrderStatus={setOrderStatus}
-                onOrder={(id) => setEditor({ kind: "order", id })}
-              />
-            )}
-            {view === "products" && (
-              <ProductsView
-                db={db}
-                brandById={brandById}
-                catById={catById}
-                soldMap={soldMap}
-                earnMap={earnMap}
-                query={query}
-                setQuery={setQuery}
-                onEdit={(id) => setEditor({ kind: "product", id })}
-              />
-            )}
-            {view === "customers" && <CustomersView orders={orders} orderTotal={orderTotal} />}
-            {view === "calendar" && <SalesCalendarView orders={orders} orderTotal={orderTotal} />}
-            {view === "brands" && (
-              <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />
-            )}
-            {view === "cats" && <CatsView db={db} updateCategory={updateCategory} upsertCategory={upsertCategory} deleteCategory={deleteCategory} toast={store.toast} />}
-            {view === "promos" && (
-              <PromosView
-                db={db}
-                prodById={prodById}
-                togglePromotion={togglePromotion}
-                onPromo={(id) => setEditor({ kind: "promo", id })}
-                onHero={(i) => setEditor({ kind: "hero", index: i })}
-              />
-            )}
-            {view === "settings" && (
-              <SettingsView
-                settings={store.settings}
-                updateSetting={store.updateSetting}
-              />
-            )}
+      <div className="main">
+        <header className="topbar">
+          <div className="crumbs"><span>{crumbSection}</span><IconChevR s={14} /><strong>{VIEW_TITLES[view]}</strong></div>
+          <div className="topSearch">
+            <IconSearchV s={16} />
+            <input placeholder="ძებნა პროდუქტებში…" value={query} onChange={(e) => { setQuery(e.target.value); setView("products"); }} />
+            <kbd>⌘K</kbd>
           </div>
+          <div className="topActions">
+            <button className={"topIcon" + (tweaksOpen ? " is-on" : "")} title="გაფორმება" onClick={() => setTweaksOpen((o) => !o)}><IconSliders /></button>
+            <button className="topIcon" title="ფოსტა"><IMail /></button>
+            <button className="topIcon" title="შეტყობინებები"><IBell /><span className="dotBadge" /></button>
+            <button className="profile">
+              <span className="avatar">{initials}</span>
+              <span className="profileMeta"><strong>{user?.email || "multicolor.ge"}</strong><small>ადმინისტრატორი</small></span>
+            </button>
+          </div>
+          {tweaksOpen && <TweaksPopover tw={tw} patch={patchTw} onClose={() => setTweaksOpen(false)} />}
+        </header>
+
+        <main className="scroll">
+          {view === "cats" ? (
+            <CatsView db={db} updateCategory={updateCategory} upsertCategory={upsertCategory} deleteCategory={deleteCategory} toast={store.toast} />
+          ) : (
+            <div className="page">
+              {view === "dash" && (
+                <Dashboard db={db} orders={orders} orderTotal={orderTotal} prodById={prodById} onOrder={(id) => setEditor({ kind: "order", id })} onEditProduct={(id) => setEditor({ kind: "product", id })} />
+              )}
+              {view === "orders" && (
+                <OrdersView orders={orders} orderTotal={orderTotal} setOrderStatus={setOrderStatus} onOrder={(id) => setEditor({ kind: "order", id })} />
+              )}
+              {view === "products" && (
+                <ProductsView db={db} brandById={brandById} catById={catById} soldMap={soldMap} earnMap={earnMap} query={query} setQuery={setQuery} onEdit={(id) => setEditor({ kind: "product", id })} />
+              )}
+              {view === "customers" && <CustomersView orders={orders} orderTotal={orderTotal} />}
+              {view === "calendar" && <SalesCalendarView orders={orders} orderTotal={orderTotal} />}
+              {view === "brands" && <BrandsView db={db} onEdit={(id) => setEditor({ kind: "brand", id })} />}
+              {view === "promos" && (
+                <PromosView db={db} prodById={prodById} togglePromotion={togglePromotion} onPromo={(id) => setEditor({ kind: "promo", id })} onHero={(i) => setEditor({ kind: "hero", index: i })} />
+              )}
+              {view === "settings" && <SettingsView settings={store.settings} updateSetting={store.updateSetting} />}
+            </div>
+          )}
         </main>
       </div>
 
@@ -1416,8 +1473,194 @@ function BrandEditor({
 }
 
 /* ============================================================
-   Categories & facets
+   Categories — color-coded tree board (drag / inline / search)
    ============================================================ */
+interface CNode { id: string; name: string; children: CNode[] }
+type DropPos = "before" | "after" | "inside";
+
+function catIsDesc(cats: Category[], nodeId: string, ancestorId: string): boolean {
+  let cur: string | null | undefined = nodeId, g = 0;
+  while (cur && g++ < 40) { if (cur === ancestorId) return true; cur = cats.find((c) => c.id === cur)?.parentId; }
+  return false;
+}
+function filterCTree(nodes: CNode[], q: string): { nodes: CNode[]; ids: Set<string> | null } {
+  if (!q.trim()) return { nodes, ids: null };
+  const needle = q.trim().toLowerCase();
+  const ids = new Set<string>();
+  const rec = (list: CNode[]): CNode[] => {
+    const out: CNode[] = [];
+    for (const n of list) {
+      const kids = rec(n.children);
+      if (n.name.toLowerCase().includes(needle) || kids.length) { out.push({ ...n, children: kids }); ids.add(n.id); }
+    }
+    return out;
+  };
+  return { nodes: rec(nodes), ids };
+}
+function CHighlight({ text, q }: { text: string; q: string }) {
+  if (!q.trim()) return <>{text}</>;
+  const i = text.toLowerCase().indexOf(q.trim().toLowerCase());
+  if (i === -1) return <>{text}</>;
+  const len = q.trim().length;
+  return (<>{text.slice(0, i)}<mark className="hl">{text.slice(i, i + len)}</mark>{text.slice(i + len)}</>);
+}
+
+interface BoardApi {
+  expanded: Set<string>; toggle: (id: string) => void;
+  editing: string | null; setEditing: (id: string | null) => void;
+  addingTo: string | null; startAdd: (id: string | null) => void;
+  confirming: string | null; setConfirming: (id: string | null) => void;
+  commitRename: (id: string, v: string) => void;
+  commitAdd: (parentId: string, name: string) => void;
+  doDelete: (id: string) => void;
+  dragId: string | null; setDragId: (id: string | null) => void;
+  dragOver: { id: string; pos: DropPos } | null; setDragOver: (v: { id: string; pos: DropPos } | null) => void;
+  endDrag: () => void; handleDrop: (targetId: string) => void;
+  countOf: (n: CNode) => number;
+}
+const BoardCtx = createContext<BoardApi | null>(null);
+
+function InlineAdd({ hue, onCommit, onCancel }: { hue: number; onCommit: (n: string) => void; onCancel: () => void }) {
+  const [v, setV] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  const commit = () => { const t = v.trim(); if (t) onCommit(t); else onCancel(); };
+  return (
+    <div className="row row--add" style={{ "--hue": hue } as React.CSSProperties}>
+      <span className="dot" />
+      <input ref={ref} className="inlineInput" value={v} placeholder="ქვეკატეგორიის სახელი…"
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") onCancel(); }}
+        onBlur={commit} />
+      <div className="rowActions rowActions--show">
+        <button className="iconBtn2 iconBtn2--ok" onMouseDown={(e) => { e.preventDefault(); commit(); }} title="დამატება"><IconCheckV /></button>
+        <button className="iconBtn2" onMouseDown={(e) => { e.preventDefault(); onCancel(); }} title="გაუქმება"><IconXV /></button>
+      </div>
+    </div>
+  );
+}
+
+function TreeNode({ node, depth, hue, q, expandedFilter }: { node: CNode; depth: number; hue: number; q: string; expandedFilter: Set<string> | null }) {
+  const b = useContext(BoardCtx)!;
+  const hasKids = node.children.length > 0;
+  const expanded = expandedFilter ? expandedFilter.has(node.id) : b.expanded.has(node.id);
+  const isEditing = b.editing === node.id;
+  const adding = b.addingTo === node.id;
+  const confirming = b.confirming === node.id;
+  const drop = b.dragOver && b.dragOver.id === node.id ? b.dragOver.pos : null;
+  const dragging = b.dragId === node.id;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [editVal, setEditVal] = useState(node.name);
+  useEffect(() => { if (isEditing) setEditVal(node.name); }, [isEditing, node.name]);
+
+  const total = b.countOf(node);
+  const subN = node.children.length;
+  const initial = node.name.trim().charAt(0);
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!b.dragId || b.dragId === node.id || !rowRef.current) return;
+    const r = rowRef.current.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height;
+    let pos: DropPos = "inside";
+    if (y < 0.28) pos = "before"; else if (y > 0.72) pos = "after";
+    b.setDragOver({ id: node.id, pos });
+  };
+
+  return (
+    <div className={"node" + (dragging ? " node--dragging" : "")}>
+      <div ref={rowRef}
+        className={"row" + (drop ? " row--drop-" + drop : "") + (confirming ? " row--danger" : "")}
+        style={{ "--hue": hue } as React.CSSProperties}
+        draggable={!isEditing}
+        onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; b.setDragId(node.id); }}
+        onDragEnd={() => b.endDrag()}
+        onDragOver={onDragOver}
+        onDrop={(e) => { e.preventDefault(); b.handleDrop(node.id); }}>
+        <span className="grip" title="გადაათრიეთ"><IconGripV /></span>
+        {hasKids ? (
+          <button className={"disclose" + (expanded ? " is-open" : "")} onClick={() => b.toggle(node.id)}><IconChevR /></button>
+        ) : (<span className="disclose disclose--leaf" />)}
+        <span className={"chip" + (depth === 0 ? " chip--root" : "")}>{initial}</span>
+        {isEditing ? (
+          <input className="inlineInput" autoFocus value={editVal}
+            onChange={(e) => setEditVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") b.commitRename(node.id, editVal); if (e.key === "Escape") b.setEditing(null); }}
+            onBlur={() => b.commitRename(node.id, editVal)} />
+        ) : (
+          <button className="name" onDoubleClick={() => b.setEditing(node.id)} title={node.name}><CHighlight text={node.name} q={q} /></button>
+        )}
+        <span className="meta">
+          {subN > 0 && <span className="pill pill--sub">{subN} ქვეკატეგორია</span>}
+          <span className={"pill" + (total === 0 ? " pill--empty" : "")}>{total === 0 ? "ცარიელი" : total + " პროდუქტი"}</span>
+        </span>
+        <span className="flex1" />
+        {confirming ? (
+          <div className="rowActions rowActions--show confirm">
+            <span className="confirmLbl">წავშალო{subN ? " (+" + subN + ")" : ""}?</span>
+            <button className="iconBtn2 iconBtn2--danger" onClick={() => b.doDelete(node.id)} title="წაშლა"><IconCheckV /></button>
+            <button className="iconBtn2" onClick={() => b.setConfirming(null)} title="გაუქმება"><IconXV /></button>
+          </div>
+        ) : (
+          <div className="rowActions">
+            <button className="iconBtn2" onClick={() => b.startAdd(node.id)} title="ქვეკატეგორიის დამატება"><IconCornerAddV /></button>
+            <button className="iconBtn2" onClick={() => b.setEditing(node.id)} title="გადარქმევა"><IconPencilV /></button>
+            <button className="iconBtn2 iconBtn2--del" onClick={() => b.setConfirming(node.id)} title="წაშლა"><IconTrashV /></button>
+          </div>
+        )}
+      </div>
+      {(expanded && hasKids) || adding ? (
+        <div className="kids">
+          <span className="rail" style={{ "--hue": hue } as React.CSSProperties} />
+          {adding && <InlineAdd hue={hue} onCommit={(name) => b.commitAdd(node.id, name)} onCancel={() => b.startAdd(null)} />}
+          {expanded && node.children.map((c) => (
+            <TreeNode key={c.id} node={c} depth={depth + 1} hue={hue} q={q} expandedFilter={expandedFilter} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NewCategory({ tree, onAdd }: { tree: CNode[]; onAdd: (parentId: string | null, name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [parent, setParent] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (open) ref.current?.focus(); }, [open]);
+
+  const options: { id: string; label: string }[] = [];
+  const walk = (list: CNode[], depth: number) => list.forEach((n) => { options.push({ id: n.id, label: "— ".repeat(depth) + n.name }); walk(n.children, depth + 1); });
+  walk(tree, 0);
+
+  const submit = () => { const t = name.trim(); if (!t) return; onAdd(parent || null, t); setName(""); setParent(""); };
+
+  if (!open) return <button className="newCatBtn" onClick={() => setOpen(true)}><IconPlusV s={18} /> ახალი კატეგორია</button>;
+  return (
+    <div className="composer">
+      <div className="composerField composerField--grow">
+        <label>ახალი კატეგორია</label>
+        <input ref={ref} value={name} placeholder="მაგ. სინთეთიკური ლაქი" onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setOpen(false); }} />
+      </div>
+      <div className="composerField">
+        <label>ძირითადი კატეგორია</label>
+        <div className="selectWrap">
+          <select value={parent} onChange={(e) => setParent(e.target.value)}>
+            <option value="">ზედა დონე — parent არ აქვს</option>
+            {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
+          <span className="selectCaret"><IconChevR s={15} /></span>
+        </div>
+      </div>
+      <div className="composerActions">
+        <button className="btn2 btn2--primary" onClick={submit}>დამატება</button>
+        <button className="btn2 btn2--ghost" onClick={() => { setOpen(false); setName(""); setParent(""); }}>გაუქმება</button>
+      </div>
+    </div>
+  );
+}
+
 function CatsView({
   db, updateCategory, upsertCategory, deleteCategory, toast,
 }: {
@@ -1427,126 +1670,131 @@ function CatsView({
   deleteCategory: (id: string) => void;
   toast: (n: React.ReactNode) => void;
 }) {
-  const tree = flatCatTree(db.categories);
+  const cats = db.categories;
 
-  /* ---- add / edit form ---- */
-  const blank = { id: "", name: "", parentId: "" };
-  const [form, setForm] = useState(blank);
-  const editing = !!form.id;
+  const tree = useMemo<CNode[]>(() => {
+    const byParent = new Map<string, Category[]>();
+    cats.forEach((c) => { const k = c.parentId || ""; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k)!.push(c); });
+    byParent.forEach((a) => a.sort((x, y) => x.order - y.order));
+    const make = (pid: string): CNode[] => (byParent.get(pid) || []).map((c) => ({ id: c.id, name: c.name, children: make(c.id) }));
+    return make("");
+  }, [cats]);
 
-  const uniqueId = (name: string) => {
-    const base = slugify(name) || "cat";
-    let id = base, n = 2;
-    while (db.categories.some((c) => c.id === id)) id = `${base}-${n++}`;
-    return id;
+  const directCount = useMemo(() => {
+    const m = new Map<string, number>();
+    db.products.forEach((p) => m.set(p.cat, (m.get(p.cat) || 0) + 1));
+    return m;
+  }, [db.products]);
+  const countOf = useCallback((n: CNode): number => (directCount.get(n.id) || 0) + n.children.reduce((s, c) => s + countOf(c), 0), [directCount]);
+
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(cats.filter((c) => !c.parentId).map((c) => c.id)));
+  const [editing, setEditing] = useState<string | null>(null);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ id: string; pos: DropPos } | null>(null);
+
+  const toggle = useCallback((id: string) => setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }), []);
+  const allIds = useMemo(() => cats.filter((c) => cats.some((x) => x.parentId === c.id)).map((c) => c.id), [cats]);
+  const allOpen = expanded.size >= allIds.length && allIds.length > 0;
+
+  const uniqueId = (name: string) => { const base = slugify(name) || "cat"; let id = base, n = 2; while (cats.some((c) => c.id === id)) id = `${base}-${n++}`; return id; };
+
+  const commitRename = (id: string, val: string) => {
+    const v = val.trim(); const c = cats.find((x) => x.id === id);
+    if (v && c && v !== c.name) updateCategory({ ...c, name: v });
+    setEditing(null);
+  };
+  const startAdd = (id: string | null) => { setAddingTo(id); if (id) setExpanded((s) => new Set(s).add(id)); };
+  const commitAdd = (parentId: string, name: string) => {
+    const order = Math.max(0, ...cats.map((c) => c.order)) + 1;
+    upsertCategory({ id: uniqueId(name), name, parentId: parentId || null, group: null, facets: ["size", "color"], order });
+    setExpanded((s) => new Set(s).add(parentId));
+    setAddingTo(null);
+    toast(<><span className="tick">✓</span> კატეგორია დაემატა</>);
+  };
+  const addCategory = (parentId: string | null, name: string) => {
+    const order = Math.max(0, ...cats.map((c) => c.order)) + 1;
+    upsertCategory({ id: uniqueId(name), name, parentId: parentId || null, group: null, facets: ["size", "color"], order });
+    if (parentId) setExpanded((s) => new Set(s).add(parentId));
+    toast(<><span className="tick">✓</span> კატეგორია დაემატა</>);
+  };
+  const doDelete = (id: string) => { deleteCategory(id); setConfirming(null); toast(<><span className="tick">✓</span> წაიშალა</>); };
+
+  const endDrag = () => { setDragId(null); setDragOver(null); };
+  const handleDrop = (targetId: string) => {
+    const src = dragId; const over = dragOver; endDrag();
+    if (!src || !over || src === targetId) return;
+    if (catIsDesc(cats, targetId, src)) return; // can't drop into own subtree
+    const target = cats.find((c) => c.id === targetId); const srcCat = cats.find((c) => c.id === src);
+    if (!target || !srcCat) return;
+    const newParent = over.pos === "inside" ? target.id : (target.parentId || null);
+    let sibs = cats.filter((c) => (c.parentId || null) === (newParent || null) && c.id !== src).sort((a, c) => a.order - c.order).map((c) => c.id);
+    if (over.pos === "inside") sibs = [src, ...sibs];
+    else { const ti = sibs.indexOf(targetId); sibs.splice(over.pos === "after" ? ti + 1 : ti, 0, src); }
+    sibs.forEach((id, idx) => {
+      const c = cats.find((x) => x.id === id); if (!c) return;
+      if (id === src) updateCategory({ ...c, parentId: newParent, order: idx });
+      else if (c.order !== idx) updateCategory({ ...c, order: idx });
+    });
+    if (over.pos === "inside") setExpanded((s) => new Set(s).add(targetId));
   };
 
-  const save = () => {
-    const name = form.name.trim();
-    if (!name) { toast(<>დაასახელე კატეგორია</>); return; }
-    if (editing) {
-      const existing = db.categories.find((c) => c.id === form.id);
-      if (!existing) return;
-      // guard: can't set parent to itself or a descendant
-      const banned = new Set(flatCatTree(db.categories).filter((t) => {
-        let p: string | null | undefined = t.c.id;
-        while (p) { if (p === form.id) return true; p = db.categories.find((x) => x.id === p)?.parentId; }
-        return false;
-      }).map((t) => t.c.id));
-      const parentId = form.parentId && !banned.has(form.parentId) ? form.parentId : null;
-      upsertCategory({ ...existing, name, parentId });
-      toast(<><span className="tick">✓</span> კატეგორია განახლდა</>);
-    } else {
-      const order = Math.max(0, ...db.categories.map((c) => c.order)) + 1;
-      upsertCategory({ id: uniqueId(name), name, parentId: form.parentId || null, group: null, facets: ["size", "color"], order });
-      toast(<><span className="tick">✓</span> კატეგორია დაემატა</>);
-    }
-    setForm(blank);
-  };
+  const filtered = useMemo(() => filterCTree(tree, q), [tree, q]);
+  const stats = useMemo(() => {
+    let subs = 0; const rec = (l: CNode[], d: number) => l.forEach((n) => { if (d > 0) subs++; rec(n.children, d + 1); });
+    rec(tree, 0); return { cats: tree.length, subs };
+  }, [tree]);
+  const prodTotal = useMemo(() => tree.reduce((s, n) => s + countOf(n), 0), [tree, countOf]);
 
-  const startEdit = (c: Category) =>
-    setForm({ id: c.id, name: c.name, parentId: c.parentId || "" });
-
-  const removeCat = (c: Category) => {
-    const n = db.products.filter((p) => p.cat === c.id).length;
-    const kids = db.categories.filter((x) => x.parentId === c.id).length;
-    const msg = `წავშალო „${c.name}“?` +
-      (kids ? ` ${kids} ქვე-კატეგორია ამაღლდება ერთი დონით.` : "") +
-      (n ? ` ${n} პროდუქტი დარჩება ამ კატეგორიის გარეშე.` : "");
-    if (!confirm(msg)) return;
-    if (form.id === c.id) setForm(blank);
-    deleteCategory(c.id);
-    toast(<><span className="tick">✓</span> წაიშალა</>);
-  };
-
-  // reorder within the same parent (swap order with adjacent sibling)
-  const move = (c: Category, dir: number) => {
-    const sibs = db.categories.filter((x) => (x.parentId || null) === (c.parentId || null)).sort((a, b) => a.order - b.order);
-    const i = sibs.findIndex((x) => x.id === c.id);
-    const j = i + dir;
-    if (j < 0 || j >= sibs.length) return;
-    updateCategory({ ...sibs[i], order: sibs[j].order });
-    updateCategory({ ...sibs[j], order: sibs[i].order });
+  const api: BoardApi = {
+    expanded, toggle, editing, setEditing, addingTo, startAdd, confirming, setConfirming,
+    commitRename, commitAdd, doDelete, dragId, setDragId, dragOver, setDragOver, endDrag, handleDrop, countOf,
   };
 
   return (
-    <>
-      <div className="adm-head">
-        <h1>კატეგორიები</h1>
-        <p className="sub">დაამატე კატეგორია, მიანიჭე ძირითადი (parent) კატეგორია და დაალაგე. სხვა არაფერი სჭირდება — მაღაზიის ფილტრები ავტომატურად აეწყობა.</p>
-      </div>
-
-      {/* add / edit form */}
-      <div className="acard cat-form">
-        <div className="frow2">
-          <div className="field">
-            <label>{editing ? "სახელის რედაქტირება" : "ახალი კატეგორია"}</label>
-            <input value={form.name} placeholder="მაგ. სინთეთიკური ლაქი" onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} />
+    <BoardCtx.Provider value={api}>
+      <div className="page">
+        <header className="pageHead">
+          <div>
+            <h1 className="pageTitle">კატეგორიები</h1>
+            <p className="pageSub">გადაათრიეთ რიგის შესაცვლელად, ჩააგდეთ კატეგორიაში მის ქვეშ მოსათავსებლად. დააჭირეთ <span className="inlineGlyph"><IconCornerAddV s={13} /></span> ქვეკატეგორიის დასამატებლად.</p>
           </div>
-          <div className="field">
-            <label>ძირითადი (parent) კატეგორია</label>
-            <select value={form.parentId} onChange={(e) => setForm((s) => ({ ...s, parentId: e.target.value }))}>
-              <option value="">— ძირითადი კატეგორია (parent არ აქვს) —</option>
-              {flatCatTree(db.categories)
-                .filter((t) => t.c.id !== form.id)
-                .map(({ c, depth }) => (
-                  <option key={c.id} value={c.id}>{`${"  ".repeat(depth)}${depth ? "└ " : ""}${c.name}`}</option>
-                ))}
-            </select>
+          <div className="statRow">
+            <div className="stat"><span className="statNum">{stats.cats}</span><span className="statLbl">კატეგორია</span></div>
+            <div className="statDiv" />
+            <div className="stat"><span className="statNum">{stats.subs}</span><span className="statLbl">ქვეკატეგორია</span></div>
+            <div className="statDiv" />
+            <div className="stat"><span className="statNum">{prodTotal}</span><span className="statLbl">პროდუქტი</span></div>
+          </div>
+        </header>
+
+        <div className="toolbar">
+          <div className="searchBox">
+            <IconSearchV />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ძებნა კატეგორიებში…" />
+            {q && <button className="clearBtn" onClick={() => setQ("")}><IconXV s={14} /></button>}
+          </div>
+          <div className="toolbarRight">
+            <button className="btn2 btn2--ghost" onClick={() => setExpanded(allOpen ? new Set() : new Set(allIds))}>
+              {allOpen ? <IconCollapseV /> : <IconExpandV />}{allOpen ? "ჩაკეცვა" : "გაშლა"}
+            </button>
+            <NewCategory tree={tree} onAdd={addCategory} />
           </div>
         </div>
-        <div className="cat-form-actions">
-          {editing && <button className="btn-line sm" onClick={() => setForm(blank)}>გაუქმება</button>}
-          <button className="btn sm" onClick={save}>{editing ? "შენახვა" : "+ დამატება"}</button>
+
+        <div className="treeCard" onDragOver={(e) => e.preventDefault()}>
+          {filtered.nodes.length === 0 ? (
+            <div className="emptyState"><IconSearchV s={28} /><p>„{q}“ — ვერაფერი მოიძებნა</p></div>
+          ) : (
+            filtered.nodes.map((n, i) => (
+              <TreeNode key={n.id} node={n} depth={0} hue={HUE_PALETTE[i % HUE_PALETTE.length]} q={q} expandedFilter={filtered.ids} />
+            ))
+          )}
         </div>
       </div>
-
-      {/* tree */}
-      <div className="acard">
-        {tree.map(({ c, depth }) => {
-          const n = db.products.filter((p) => p.cat === c.id).length;
-          const sibs = db.categories.filter((x) => (x.parentId || null) === (c.parentId || null)).sort((a, b) => a.order - b.order);
-          const idx = sibs.findIndex((x) => x.id === c.id);
-          return (
-            <div className="cat-row" key={c.id}>
-              <div className="ord">
-                <button disabled={idx === 0} title="ზემოთ" onClick={() => move(c, -1)}>▲</button>
-                <button disabled={idx === sibs.length - 1} title="ქვემოთ" onClick={() => move(c, 1)}>▼</button>
-              </div>
-              <div className="cnm" style={{ paddingLeft: depth * 18 }}>
-                {depth > 0 && <span className="dim" style={{ marginRight: 6 }}>└</span>}
-                {c.name}
-                <br /><span className="dim">{depth === 0 ? "ძირითადი" : "ქვე-კატეგორია"} · {n} პროდუქტი</span>
-              </div>
-              <div className="cat-actions">
-                <button className="btn-line sm" title="რედაქტირება" onClick={() => startEdit(c)}>✎</button>
-                <button className="btn-line sm danger" title="წაშლა" onClick={() => removeCat(c)}>×</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
+    </BoardCtx.Provider>
   );
 }
 
