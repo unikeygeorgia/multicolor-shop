@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { useStore } from "@/components/store-provider";
 import { useAuth } from "@/components/auth-provider";
+import { CategoryIcon } from "@/components/category-icons";
 import type { MulticolorData } from "@/lib/types";
 import {
   BurgerIcon,
@@ -29,7 +30,8 @@ function MegaColumns({ db }: { db: MulticolorData }) {
           .sort((a, b) => a.order - b.order);
         return (
           <div key={top.id}>
-            <h5>
+            <h5 className="mega-cat-h">
+              <span className="mega-ci"><CategoryIcon id={top.id} /></span>
               <Link href={`/shop?cat=${top.id}`}>{top.name}</Link>
             </h5>
             <ul>

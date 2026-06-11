@@ -1351,6 +1351,32 @@
 .swbtn:hover { border-color: var(--ink); }
 .swbtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .swbtn .dot { width: 16px; height: 16px; }
+
+/* ---- category drill-down (shop filter) ---- */
+.cat-tree { gap: 1px; }
+.cat-row-f { display: flex; align-items: center; border-radius: 8px; }
+.cat-row-f:hover { background: var(--line-soft); }
+.cat-row-f.sel { background: var(--accent-soft); }
+.cat-pick { flex: 1; display: flex; align-items: center; gap: 9px; background: none; border: none; text-align: left; font-size: 13.5px; color: var(--ink-soft); padding: 8px 4px; cursor: pointer; min-width: 0; font-family: inherit; }
+.cat-row-f.sel .cat-pick { color: var(--accent); font-weight: 700; }
+.cat-pick .ci { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; display: inline-flex; }
+.cat-pick .ci svg { width: 20px; height: 20px; }
+.cat-pick .cn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-pick .ck { color: var(--accent); font-weight: 800; font-size: 12px; }
+.cat-exp { background: none; border: none; color: var(--muted); cursor: pointer; padding: 6px 8px; display: inline-flex; align-items: center; flex-shrink: 0; }
+.cat-exp svg { width: 15px; height: 15px; transition: transform .15s ease; }
+.cat-exp.open svg { transform: rotate(180deg); }
+.cat-exp:hover { color: var(--ink); }
+
+/* ---- brand row with logo ---- */
+.frow.brow { gap: 8px; }
+.blogo { width: 30px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line-soft); border-radius: 5px; overflow: hidden; }
+.blogo img { max-width: 26px; max-height: 16px; object-fit: contain; }
+
+/* mega-menu category header icon */
+.mega-cat-h { display: flex; align-items: center; gap: 7px; }
+.mega-cat-h .mega-ci { width: 18px; height: 18px; color: var(--accent); display: inline-flex; }
+.mega-cat-h .mega-ci svg { width: 18px; height: 18px; }
 .price-vals { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
 .dual-range { position: relative; height: 26px; }
 .dual-range input[type=range] { position: absolute; left: 0; right: 0; top: 8px; width: 100%; height: 4px; -webkit-appearance: none; appearance: none; background: none; pointer-events: none; margin: 0; }

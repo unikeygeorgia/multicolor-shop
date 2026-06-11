@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import type { Category, Product } from "@/lib/types";
-import { fmt, hasTag, inStock, minPrice, salePrice } from "@/lib/utils";
+import { hasTag, minPrice, salePrice } from "@/lib/utils";
 import { useStore } from "@/components/store-provider";
 import { ProductCard } from "@/components/product-card";
+import { CategoryIcon } from "@/components/category-icons";
+import { ChevronDownIcon } from "@/components/icons";
+import { brandLogo } from "@/lib/brand-logos";
 
 const STATUS_LABELS: Record<string, string> = {
   new: "ახალი",
   sale: "ფასდაკლებით",
-  stock: "მარაგშია",
 };
 
 function toggle(list: string[], val: string): string[] {
@@ -20,32 +22,20 @@ function toggle(list: string[], val: string): string[] {
 }
 
 export function ShopClient() {
-  const { db, catById, brandById, surfName } = useStore();
+  const { db, catById, brandById } = useStore();
   const params = useSearchParams();
-
-  const priceMax = useMemo(
-    () =>
-      Math.ceil(
-        Math.max(...db.products.flatMap((p) => p.sizes.map((s) => s.p))) / 10
-      ) * 10,
-    [db.products]
-  );
 
   /* ---- filter state (seeded from URL) ---- */
   const [cats, setCats] = useState<string[]>(params.get("cat") ? [params.get("cat")!] : []);
   const [brands, setBrands] = useState<string[]>(params.get("brand") ? [params.get("brand")!] : []);
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
-  const [surfaces, setSurfaces] = useState<string[]>([]);
   const [status, setStatus] = useState<string[]>(params.get("tag") ? [params.get("tag")!] : []);
-  const [pmin, setPmin] = useState(0);
-  const [pmax, setPmax] = useState(priceMax);
   const q = (params.get("q") || "").trim();
   const [sort, setSort] = useState("pop");
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const effPrice = (p: Product) => salePrice(p, minPrice(p));
-  const maxEffPrice = (p: Product) => salePrice(p, Math.max(...p.sizes.map((s) => s.p)));
 
   /* ---- category tree ---- */
   const catChildren = useMemo(() => {
@@ -75,21 +65,73 @@ export function ShopClient() {
     return s;
   }, [cats, descOf]);
 
+  /* ---- progressive drill-down: only show sub-categories of an expanded node ---- */
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    // expand the seeded category + all its ancestors so it's visible
+    const s = new Set<string>();
+    let cur: string | null | undefined = params.get("cat");
+    while (cur) {
+      s.add(cur);
+      cur = db.categories.find((c) => c.id === cur)?.parentId || null;
+    }
+    return s;
+  });
+
+  const toggleCat = (c: Category) => {
+    const wasSelected = cats.includes(c.id);
+    setCats((s) => toggle(s, c.id));
+    if ((catChildren.get(c.id) || []).length > 0) {
+      // selecting a parent reveals its sub-categories; deselecting collapses
+      setExpanded((s) => {
+        const n = new Set(s);
+        if (wasSelected) n.delete(c.id);
+        else n.add(c.id);
+        return n;
+      });
+    }
+  };
+  const toggleExpand = (id: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
   const renderCatNodes = (parentId: string | null, depth: number): ReactNode[] =>
-    (catChildren.get(parentId || "") || []).map((c) => (
-      <div key={c.id}>
-        <label className="frow" style={{ paddingLeft: depth * 16 }}>
-          <input type="checkbox" checked={cats.includes(c.id)} onChange={() => setCats((s) => toggle(s, c.id))} />
-          <span>{c.name}</span>
-        </label>
-        {renderCatNodes(c.id, depth + 1)}
-      </div>
-    ));
+    (catChildren.get(parentId || "") || []).map((c) => {
+      const hasKids = (catChildren.get(c.id) || []).length > 0;
+      const isExp = expanded.has(c.id);
+      const sel = cats.includes(c.id);
+      return (
+        <div key={c.id} className="cat-node">
+          <div className={`cat-row-f${sel ? " sel" : ""}`} style={{ paddingLeft: 8 + depth * 14 }}>
+            <button type="button" className="cat-pick" onClick={() => toggleCat(c)}>
+              {depth === 0 && <span className="ci"><CategoryIcon id={c.id} /></span>}
+              <span className="cn">{c.name}</span>
+              {sel && <span className="ck" aria-hidden>✓</span>}
+            </button>
+            {hasKids && (
+              <button
+                type="button"
+                className={`cat-exp${isExp ? " open" : ""}`}
+                aria-label={isExp ? "ჩაკეცვა" : "გაშლა"}
+                aria-expanded={isExp}
+                onClick={() => toggleExpand(c.id)}
+              >
+                <ChevronDownIcon />
+              </button>
+            )}
+          </div>
+          {hasKids && isExp && renderCatNodes(c.id, depth + 1)}
+        </div>
+      );
+    });
 
   const activeFacets = useMemo(() => {
-    if (cats.length === 0) return ["size", "color", "surface"];
+    if (cats.length === 0) return ["size", "color"];
     const set = new Set<string>();
     cats.forEach((cid) => (catById(cid)?.facets || []).forEach((f) => set.add(f)));
+    set.delete("surface");
     return [...set];
   }, [cats, catById]);
 
@@ -98,15 +140,8 @@ export function ShopClient() {
     if (cats.length && !selectedCatSet.has(p.cat)) return false;
     if (sizes.length && !p.sizes.some((s) => sizes.includes(s.l))) return false;
     if (colors.length && !(p.colors || []).some((c) => colors.includes(c.n))) return false;
-    if (surfaces.length) {
-      const sf = (p.specs && p.specs.surface) || [];
-      if (!sf.some((s) => surfaces.includes(s))) return false;
-    }
     if (status.includes("new") && !hasTag(p, "new")) return false;
     if (status.includes("sale") && !p.salePct) return false;
-    if (status.includes("stock") && !inStock(p)) return false;
-    const lo = effPrice(p), hi = maxEffPrice(p);
-    if (hi < pmin || lo > pmax) return false;
     if (q) {
       const hay = (
         p.name + " " + (p.desc || "") + " " +
@@ -125,7 +160,7 @@ export function ShopClient() {
     else l.sort((a, b) => ((b.featured ? 2 : 0) + (b.salePct ? 1 : 0)) - ((a.featured ? 2 : 0) + (a.salePct ? 1 : 0)));
     return l;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db.products, cats, brands, sizes, colors, surfaces, status, pmin, pmax, q, sort]);
+  }, [db.products, cats, brands, sizes, colors, status, q, sort]);
 
   /* ---- option pools ---- */
   const pool = useMemo(
@@ -154,9 +189,7 @@ export function ShopClient() {
   brands.forEach((id) => chips.push({ k: "brands", v: id, label: brandById(id)?.name || id }));
   sizes.forEach((l) => chips.push({ k: "sizes", v: l, label: l }));
   colors.forEach((n) => chips.push({ k: "colors", v: n, label: n }));
-  surfaces.forEach((s) => chips.push({ k: "surfaces", v: s, label: surfName(s) }));
   status.forEach((s) => chips.push({ k: "status", v: s, label: STATUS_LABELS[s] }));
-  if (pmin > 0 || pmax < priceMax) chips.push({ k: "price", v: "", label: `${pmin}–${pmax} ₾` });
   if (q) chips.push({ k: "q", v: "", label: `„${q}“` });
 
   const removeChip = (k: string, v: string) => {
@@ -164,13 +197,10 @@ export function ShopClient() {
     else if (k === "brands") setBrands((s) => s.filter((x) => x !== v));
     else if (k === "sizes") setSizes((s) => s.filter((x) => x !== v));
     else if (k === "colors") setColors((s) => s.filter((x) => x !== v));
-    else if (k === "surfaces") setSurfaces((s) => s.filter((x) => x !== v));
     else if (k === "status") setStatus((s) => s.filter((x) => x !== v));
-    else if (k === "price") { setPmin(0); setPmax(priceMax); }
   };
   const clearAll = () => {
-    setCats([]); setBrands([]); setSizes([]); setColors([]); setSurfaces([]); setStatus([]);
-    setPmin(0); setPmax(priceMax);
+    setCats([]); setBrands([]); setSizes([]); setColors([]); setStatus([]);
   };
 
   const title =
@@ -192,12 +222,21 @@ export function ShopClient() {
       <details className="fgroup" open>
         <summary>ბრენდი</summary>
         <div className="fbody">
-          {db.brands.map((b) => (
-            <label className="frow" key={b.id}>
-              <input type="checkbox" checked={brands.includes(b.id)} onChange={() => setBrands((s) => toggle(s, b.id))} />
-              <span>{b.name}</span>
-            </label>
-          ))}
+          {db.brands.map((b) => {
+            const logo = brandLogo(b.id);
+            return (
+              <label className="frow brow" key={b.id}>
+                <input type="checkbox" checked={brands.includes(b.id)} onChange={() => setBrands((s) => toggle(s, b.id))} />
+                {logo && (
+                  <span className="blogo">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logo} alt="" />
+                  </span>
+                )}
+                <span>{b.name}</span>
+              </label>
+            );
+          })}
         </div>
       </details>
 
@@ -235,44 +274,10 @@ export function ShopClient() {
         </details>
       )}
 
-      {activeFacets.includes("surface") && (
-        <details className="fgroup" open>
-          <summary>ზედაპირი / დანიშნულება</summary>
-          <div className="fbody">
-            {db.surfaces.map((s) => (
-              <label className="frow" key={s.id}>
-                <input type="checkbox" checked={surfaces.includes(s.id)} onChange={() => setSurfaces((x) => toggle(x, s.id))} />
-                <span>{s.name}</span>
-              </label>
-            ))}
-          </div>
-        </details>
-      )}
-
-      <details className="fgroup" open>
-        <summary>ფასი (₾)</summary>
-        <div className="fbody">
-          <div className="price-vals num">
-            <span>{fmt(pmin)}</span>
-            <span>{fmt(pmax)}</span>
-          </div>
-          <div className="dual-range">
-            <input
-              type="range" min={0} max={priceMax} step={1} value={pmin}
-              onChange={(e) => setPmin(Math.min(+e.target.value, pmax))}
-            />
-            <input
-              type="range" min={0} max={priceMax} step={1} value={pmax}
-              onChange={(e) => setPmax(Math.max(+e.target.value, pmin))}
-            />
-          </div>
-        </div>
-      </details>
-
       <details className="fgroup" open>
         <summary>სტატუსი</summary>
         <div className="fbody">
-          {(["new", "sale", "stock"] as const).map((s) => (
+          {(["new", "sale"] as const).map((s) => (
             <label className="frow" key={s}>
               <input type="checkbox" checked={status.includes(s)} onChange={() => setStatus((x) => toggle(x, s))} />
               <span>{STATUS_LABELS[s]}</span>
