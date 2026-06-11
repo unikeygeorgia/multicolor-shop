@@ -303,17 +303,17 @@ function ColorPickerStyles() {
 }
 
 const CP_CSS = `
-.cpPanel{ width:320px; background:#fff; border-radius:16px; padding:18px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; position:relative; box-sizing:border-box; }
+.cpPanel{ width:268px; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; position:relative; box-sizing:border-box; }
 .cpPanel *{ box-sizing:border-box; }
 .cpHead{ display:flex; align-items:center; margin-bottom:14px; }
-.cpTitle{ font-size:16px; font-weight:700; }
+.cpTitle{ font-size:13.5px; font-weight:700; }
 .cpHead .cpTitle{ margin-right:auto; }
 .cpHead--center{ position:relative; justify-content:center; }
 .cpHead--center .cpIcoBtn:first-child{ position:absolute; left:0; }
 .cpHead--center .cpIcoBtn:last-child{ position:absolute; right:0; }
 .cpIcoBtn{ border:0; background:none; color:#8a8a8a; cursor:pointer; display:grid; place-items:center; width:28px; height:28px; border-radius:8px; }
 .cpIcoBtn:hover{ background:#f2f2f3; color:#1e1e1e; }
-.cpSV{ position:relative; width:100%; height:150px; border-radius:9px; cursor:crosshair; margin-bottom:16px; touch-action:none; }
+.cpSV{ position:relative; width:100%; height:120px; border-radius:9px; cursor:crosshair; margin-bottom:16px; touch-action:none; }
 .cpSVthumb{ position:absolute; width:16px; height:16px; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 0 2px #fff,0 0 2px 2px rgba(0,0,0,.3); pointer-events:none; }
 .cpHue,.cpAlpha{ position:relative; width:100%; height:12px; border-radius:7px; margin-bottom:12px; cursor:pointer; touch-action:none; }
 .cpHue{ background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); }
@@ -321,45 +321,45 @@ const CP_CSS = `
 .cpAlphaFill{ position:absolute; inset:0; border-radius:7px; }
 .cpThumb{ position:absolute; top:50%; width:18px; height:18px; border-radius:50%; background:#fff; transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.06); pointer-events:none; }
 .cpRow2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
-.cpInput{ position:relative; background:#f3f3f4; border-radius:11px; padding:0 14px; height:48px; display:flex; align-items:center; }
-.cpInput input{ border:0; background:none; outline:none; width:100%; font-size:16px; font-weight:500; color:#1e1e1e; font-family:inherit; }
-.cpInput--pct .cpPctSign{ color:#8a8a8a; font-size:16px; }
-.cpSelect{ background:#f3f3f4; border:0; border-radius:11px; height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:15px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; width:100%; }
+.cpInput{ position:relative; background:#f3f3f4; border-radius:11px; padding:0 14px; height:40px; display:flex; align-items:center; }
+.cpInput input{ border:0; background:none; outline:none; width:100%; font-size:13.5px; font-weight:500; color:#1e1e1e; font-family:inherit; }
+.cpInput--pct .cpPctSign{ color:#8a8a8a; font-size:13.5px; }
+.cpSelect{ background:#f3f3f4; border:0; border-radius:11px; height:40px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:13px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; width:100%; }
 .cpSelect svg{ color:#8a8a8a; }
-.cpDropper{ background:#f3f3f4; border:0; border-radius:11px; height:48px; display:grid; place-items:center; cursor:pointer; color:#1e1e1e; }
+.cpDropper{ background:#f3f3f4; border:0; border-radius:11px; height:40px; display:grid; place-items:center; cursor:pointer; color:#1e1e1e; }
 .cpDropper:hover,.cpSelect:hover{ background:#ececee; }
 .cpFmt{ position:relative; }
 .cpFmtMenu{ position:absolute; bottom:calc(100% + 6px); left:0; right:0; background:#fff; border-radius:11px; box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.05); padding:6px; z-index:50; display:flex; flex-direction:column; }
-.cpFmtItem{ border:0; background:none; text-align:left; padding:9px 12px; font-size:15px; font-weight:600; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
+.cpFmtItem{ border:0; background:none; text-align:left; padding:9px 12px; font-size:13px; font-weight:600; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
 .cpFmtItem:hover{ background:#f2f2f3; }
-.cpFmtItem.is-on{ color:#3ba7ff; }
+.cpFmtItem.is-on{ color:#2f4bc7; }
 .cpDivider{ height:1px; background:#ececec; margin:14px 0; }
 .cpSearch{ display:flex; align-items:center; gap:11px; color:#9a9a9a; }
-.cpSearch input{ border:0; background:none; outline:none; flex:1; font-size:16px; color:#1e1e1e; font-family:inherit; }
+.cpSearch input{ border:0; background:none; outline:none; flex:1; font-size:13.5px; color:#1e1e1e; font-family:inherit; }
 .cpSearch input::placeholder{ color:#b3b3b3; }
-.cpList{ display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto; margin-bottom:10px; }
+.cpList{ display:flex; flex-direction:column; gap:2px; max-height:150px; overflow-y:auto; margin-bottom:10px; }
 .cpItem{ display:flex; align-items:center; gap:13px; padding:11px 12px; border-radius:11px; cursor:pointer; }
 .cpItem:hover{ background:#f5f5f6; }
 .cpItem.is-sel{ background:#f1f1f3; }
 .cpDot{ width:16px; height:16px; border-radius:50%; flex-shrink:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,.08); }
-.cpItemName{ flex:1; font-size:16px; color:#5a5a5a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cpItemName{ flex:1; font-size:13.5px; color:#5a5a5a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cpItem.is-sel .cpItemName{ color:#1e1e1e; font-weight:600; }
-.cpRename{ flex:1; border:1.5px solid #3ba7ff; border-radius:7px; padding:3px 7px; font-size:15px; font-family:inherit; outline:none; }
+.cpRename{ flex:1; border:1.5px solid #2f4bc7; border-radius:7px; padding:3px 7px; font-size:13px; font-family:inherit; outline:none; }
 .cpItemMenu{ border:0; background:none; color:#b0b0b0; cursor:pointer; font-size:18px; line-height:1; padding:2px 4px; border-radius:6px; opacity:0; }
 .cpItem:hover .cpItemMenu{ opacity:1; }
 .cpItemMenu:hover{ background:#e7e7e9; color:#1e1e1e; }
-.cpNewStyle{ width:100%; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
+.cpNewStyle{ width:100%; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:13.5px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
 .cpNewStyle:hover{ background:#ececee; }
-.cpNameField{ width:100%; background:#f3f3f4; border:1.5px solid #3ba7ff; border-radius:12px; padding:14px 16px; font-size:16px; color:#1e1e1e; outline:none; font-family:inherit; margin-bottom:14px; box-shadow:0 0 0 3px rgba(59,167,255,.18); }
+.cpNameField{ width:100%; background:#f3f3f4; border:1.5px solid #2f4bc7; border-radius:12px; padding:14px 16px; font-size:13.5px; color:#1e1e1e; outline:none; font-family:inherit; margin-bottom:14px; box-shadow:0 0 0 3px rgba(47,75,199,.18); }
 .cpNameField::placeholder{ color:#a8a8a8; }
-.cpCreate{ width:100%; background:#3ba7ff; border:0; border-radius:12px; padding:16px; font-size:17px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; }
-.cpCreate.is-disabled{ background:#a9d4ff; cursor:default; }
+.cpCreate{ width:100%; background:#2f4bc7; border:0; border-radius:12px; padding:16px; font-size:13px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; }
+.cpCreate.is-disabled{ background:#9fb0e8; cursor:default; }
 .cpEmpty{ font-size:14px; color:#a0a0a0; padding:14px 12px; text-align:center; }
 .cpMenu{ position:fixed; z-index:9999; background:#fff; border-radius:12px; box-shadow:0 10px 36px rgba(0,0,0,.2),0 0 0 1px rgba(0,0,0,.05); padding:8px; min-width:190px; display:flex; flex-direction:column; }
-.cpMenuItem{ border:0; background:none; text-align:left; padding:11px 14px; font-size:16px; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
+.cpMenuItem{ border:0; background:none; text-align:left; padding:11px 14px; font-size:13.5px; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
 .cpMenuItem:hover{ background:#f2f2f3; }
 .cpMenuItem--del{ color:#e23b3b; }
 .cfWrap{ position:relative; display:inline-block; }
 .cfSwatch{ width:46px; height:38px; border-radius:8px; border:1px solid rgba(0,0,0,.12); cursor:pointer; padding:0; }
-.cfPop{ position:absolute; bottom:calc(100% + 8px); left:0; z-index:200; }
+.cfPop{ position:absolute; top:0; right:calc(100% + 10px); z-index:200; }
 `;

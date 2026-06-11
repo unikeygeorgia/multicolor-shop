@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useStore } from "@/components/store-provider";
 import { useAuth } from "@/components/auth-provider";
 import { ColorField } from "@/components/ColorPicker";
-import { ImagePicker } from "@/components/ImagePicker";
+import { ImageField } from "@/components/ImagePicker";
 import type {
   AppSettings,
   Brand,
@@ -198,6 +198,14 @@ export function AdminClient() {
   const patchTw = useCallback((patch: Partial<Tweaks>) => {
     setTw((prev) => { const next = { ...prev, ...patch }; try { localStorage.setItem("mc_admin_tweaks", JSON.stringify(next)); } catch { /* ignore */ } return next; });
   }, []);
+
+  // restore + persist the last open section (set after mount to avoid hydration mismatch)
+  useEffect(() => {
+    try { const v = localStorage.getItem("mc_admin_view") as View | null; if (v) setView(v); } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("mc_admin_view", view); } catch { /* ignore */ }
+  }, [view]);
 
   useEffect(() => {
     document.body.classList.add("admin");
@@ -488,7 +496,14 @@ function AdminGate({ status }: { status: "checking" | "anon" | "denied" }) {
   };
 
   if (status === "checking") {
-    return <div className="admin-root" style={{ minHeight: "100vh" }} />;
+    return (
+      <div className="admin-root" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg, #f7f8fa)" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <span className="adm-spinner" />
+          <span style={{ fontSize: 13, color: "var(--muted, #888)" }}>იტვირთება…</span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1425,7 +1440,7 @@ function ProductEditor({
         <section className="pe2-section">
           <div className="pe2-secHead">მედია</div>
           <div className="pe2-media">
-            <ImagePicker value={image} onChange={setImage}
+            <ImageField value={image} onChange={setImage}
               onUpload={async (blob) => uploadFile(new File([blob], "image.png", { type: blob.type || "image/png" }), "photo")} />
             <div className="field"><label>დოკუმენტი (PDF / კატალოგი)</label>
               {docUrl && (<div className="up-doc"><a href={docUrl} target="_blank" rel="noreferrer">📄 ფაილის ნახვა</a>

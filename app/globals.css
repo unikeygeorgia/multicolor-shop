@@ -2484,3 +2484,7 @@ body.admin { background: #f4f3f0; }
 
 /* media row: image picker + document side by side */
 .pe2-media { display:grid; grid-template-columns:1fr; gap:14px; }
+
+/* admin loading spinner (auth-check state) */
+.adm-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(120,120,140,.18); border-top-color: #2f4bc7; animation: admspin .7s linear infinite; }
+@keyframes admspin { to { transform: rotate(360deg); } }

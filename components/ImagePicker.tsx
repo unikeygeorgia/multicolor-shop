@@ -171,6 +171,42 @@ export function ImagePicker({ value = "", onChange, onUpload, onClose }: ImagePi
   );
 }
 
+export function ImageField({ value, onChange, onUpload }: { value?: string; onChange?: (url: string) => void; onUpload?: (file: Blob) => Promise<string | null> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { ImageFieldStyles(); }, []);
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    if (open) document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  return (
+    <div className="ifWrap" ref={ref}>
+      <button type="button" className={"ifTrigger" + (value ? " has" : "")} onClick={() => setOpen((o) => !o)}>
+        {value ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={value} alt="" />) : <span className="ifPlus">+ ფოტოს დამატება</span>}
+      </button>
+      {open && <div className="ifPop"><ImagePicker value={value} onChange={onChange} onUpload={onUpload} onClose={() => setOpen(false)} /></div>}
+    </div>
+  );
+}
+
+function ImageFieldStyles() {
+  if (typeof document === "undefined" || document.getElementById("ifield-styles")) return;
+  const st = document.createElement("style");
+  st.id = "ifield-styles";
+  st.textContent = `
+  .ifWrap{ position:relative; display:inline-block; }
+  .ifTrigger{ width:104px; height:104px; border-radius:12px; border:1px dashed #d4d4d8; background:#f3f3f4; cursor:pointer; display:grid; place-items:center; padding:0; overflow:hidden; color:#7a7a82; font-size:12.5px; font-weight:600; font-family:inherit; text-align:center; }
+  .ifTrigger:hover{ border-color:#2f4bc7; color:#2f4bc7; }
+  .ifTrigger.has{ border-style:solid; border-color:#e2e2e6; }
+  .ifTrigger img{ width:100%; height:100%; object-fit:cover; }
+  .ifPlus{ padding:0 8px; }
+  .ifPop{ position:absolute; top:0; right:calc(100% + 10px); z-index:200; }
+  @media (max-width:640px){ .ifPop{ right:auto; left:0; top:calc(100% + 8px); } }
+  `;
+  document.head.appendChild(st);
+}
+
 export default ImagePicker;
 
 /* ---------------- styles (injected once) ---------------- */
@@ -183,16 +219,16 @@ function ImagePickerStyles() {
 }
 
 const IP_CSS = `
-.ipPanel{ width:320px; background:#fff; border-radius:16px; padding:18px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; box-sizing:border-box; }
+.ipPanel{ width:268px; background:#fff; border-radius:14px; padding:14px; box-shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.04); font-family:inherit; color:#1e1e1e; box-sizing:border-box; }
 .ipPanel *{ box-sizing:border-box; }
 .ipHead{ display:flex; align-items:center; margin-bottom:14px; }
-.ipTitle{ font-size:16px; font-weight:700; margin-right:auto; }
+.ipTitle{ font-size:13.5px; font-weight:700; margin-right:auto; }
 .ipIco{ border:0; background:none; color:#8a8a8a; cursor:pointer; display:grid; place-items:center; width:28px; height:28px; border-radius:8px; }
 .ipIco:hover{ background:#f2f2f3; color:#1e1e1e; }
-.ipDrop{ position:relative; width:100%; min-height:200px; background:#f1f1f3; border-radius:12px; display:grid; place-items:center; cursor:pointer; overflow:hidden; margin-bottom:16px; transition:.14s; }
-.ipDrop.is-over{ box-shadow:inset 0 0 0 2px #3ba7ff; background:#eef6ff; }
+.ipDrop{ position:relative; width:100%; min-height:150px; background:#f1f1f3; border-radius:12px; display:grid; place-items:center; cursor:pointer; overflow:hidden; margin-bottom:16px; transition:.14s; }
+.ipDrop.is-over{ box-shadow:inset 0 0 0 2px #2f4bc7; background:#eef1fb; }
 .ipDrop.has-img{ cursor:default; }
-.ipChoose,.ipReplace{ background:#6b6b6b; color:#fff; border:0; border-radius:10px; padding:13px 22px; font-size:16px; font-weight:600; cursor:pointer; font-family:inherit; }
+.ipChoose,.ipReplace{ background:#6b6b6b; color:#fff; border:0; border-radius:10px; padding:13px 22px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; }
 .ipChoose:hover,.ipReplace:hover{ background:#5a5a5a; }
 .ipImg{ position:absolute; inset:0; width:100%; height:100%; }
 .ipReplace{ position:relative; z-index:1; opacity:0; transition:.14s; }
@@ -208,31 +244,31 @@ const IP_CSS = `
 .ipCH-sw{ left:-7px; bottom:-7px; cursor:nesw-resize; } .ipCH-se{ right:-7px; bottom:-7px; cursor:nwse-resize; }
 .ipFields{ display:flex; flex-direction:column; gap:11px; }
 .ipRow{ display:grid; grid-template-columns:96px 1fr; align-items:center; gap:10px; }
-.ipLabel{ font-size:16px; font-weight:600; color:#1e1e1e; }
+.ipLabel{ font-size:13.5px; font-weight:600; color:#1e1e1e; }
 .ipSelWrap,.ipPosField{ position:relative; }
-.ipSelect{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:46px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:16px; font-weight:500; color:#1e1e1e; cursor:pointer; font-family:inherit; }
+.ipSelect{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:40px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:13.5px; font-weight:500; color:#1e1e1e; cursor:pointer; font-family:inherit; }
 .ipSelect.is-muted{ color:#9a9a9a; } .ipSelect svg{ color:#9a9a9a; }
 .ipSelect:hover,.ipPosBtn:hover{ background:#ececee; }
 .ipSelMenu,.ipPosPop{ position:absolute; top:calc(100% + 6px); left:0; right:0; background:#fff; border-radius:11px; box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.05); padding:6px; z-index:50; }
-.ipSelItem{ display:block; width:100%; border:0; background:none; text-align:left; padding:10px 12px; font-size:15px; font-weight:600; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
-.ipSelItem:hover{ background:#f2f2f3; } .ipSelItem.is-on{ color:#3ba7ff; }
-.ipPosBtn{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:46px; display:flex; align-items:center; gap:10px; padding:0 14px; cursor:pointer; font-family:inherit; }
+.ipSelItem{ display:block; width:100%; border:0; background:none; text-align:left; padding:10px 12px; font-size:13px; font-weight:600; color:#1e1e1e; cursor:pointer; border-radius:8px; font-family:inherit; }
+.ipSelItem:hover{ background:#f2f2f3; } .ipSelItem.is-on{ color:#2f4bc7; }
+.ipPosBtn{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:40px; display:flex; align-items:center; gap:10px; padding:0 14px; cursor:pointer; font-family:inherit; }
 .ipPosGrid{ display:grid; grid-template-columns:repeat(3,3px); grid-template-rows:repeat(3,3px); gap:3px; }
-.ipPosCell{ width:3px; height:3px; border-radius:50%; background:#b6b6bc; } .ipPosCell.is-on{ background:#3ba7ff; }
-.ipPosLabel{ flex:1; text-align:left; font-size:16px; font-weight:500; color:#1e1e1e; } .ipPosLabel.is-muted{ color:#9a9a9a; }
+.ipPosCell{ width:3px; height:3px; border-radius:50%; background:#b6b6bc; } .ipPosCell.is-on{ background:#2f4bc7; }
+.ipPosLabel{ flex:1; text-align:left; font-size:13.5px; font-weight:500; color:#1e1e1e; } .ipPosLabel.is-muted{ color:#9a9a9a; }
 .ipPosBtn svg{ color:#9a9a9a; }
 .ipPosPop{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:10px; }
 .ipPosOpt{ aspect-ratio:1; border:0; background:#f1f1f3; border-radius:8px; cursor:pointer; display:grid; place-items:center; }
 .ipPosOpt span{ width:8px; height:8px; border-radius:50%; background:#b6b6bc; }
-.ipPosOpt:hover{ background:#e6e6ea; } .ipPosOpt.is-on{ background:#e8f3ff; } .ipPosOpt.is-on span{ background:#3ba7ff; }
-.ipAlt{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:46px; padding:0 14px; font-size:16px; color:#1e1e1e; outline:none; font-family:inherit; }
+.ipPosOpt:hover{ background:#e6e6ea; } .ipPosOpt.is-on{ background:#eef1fb; } .ipPosOpt.is-on span{ background:#2f4bc7; }
+.ipAlt{ width:100%; background:#f3f3f4; border:0; border-radius:11px; height:40px; padding:0 14px; font-size:13.5px; color:#1e1e1e; outline:none; font-family:inherit; }
 .ipAlt::placeholder{ color:#a8a8a8; }
 .ipDivider{ height:1px; background:#ececec; margin:16px 0; }
-.ipCrop{ width:100%; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
+.ipCrop{ width:100%; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:13.5px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
 .ipCrop:hover{ background:#ececee; } .ipCrop.is-disabled{ color:#b0b0b0; cursor:default; }
 .ipCropActions{ display:flex; gap:10px; }
-.ipBtnGhost{ flex:1; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
+.ipBtnGhost{ flex:1; background:#f3f3f4; border:0; border-radius:12px; padding:15px; font-size:13.5px; font-weight:600; color:#1e1e1e; cursor:pointer; font-family:inherit; }
 .ipBtnGhost:hover{ background:#ececee; }
-.ipBtnPrimary{ flex:1; background:#3ba7ff; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; }
+.ipBtnPrimary{ flex:1; background:#2f4bc7; border:0; border-radius:12px; padding:15px; font-size:13.5px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; }
 .ipBtnPrimary:hover{ filter:brightness(1.05); }
 `;
