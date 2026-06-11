@@ -45,5 +45,6 @@ export function ph(label: string, tint?: string | null, w = 600, h = 600): strin
 }
 
 export function prodImg(p: Product, brand?: Brand, w?: number, h?: number): string {
+  if (p.image) return p.image;
   return ph("ფოტო · " + (brand ? brand.name : ""), brand ? brand.tint : null, w, h);
 }

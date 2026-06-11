@@ -47,7 +47,16 @@ create table if not exists products (
   brand     text references brands(id),
   cat       text references categories(id),
   name      text not null,
+  subtitle  text,
   descr     text,
+  usage     text,
+  ai_info   text,
+  slug      text unique,
+  image     text,                                   -- product photo URL (Supabase Storage)
+  document  text,                                   -- attached doc/PDF URL (Supabase Storage)
+  visible   boolean not null default true,          -- show on the website
+  in_ai     boolean not null default true,          -- include in the AI bot knowledge base
+  -- sizes entries: volumes {l,p,u,v,s} (u=unit კგ/გრ/ლ/მლ…, v=value) OR tool sizes {l,p,s}
   sizes     jsonb not null default '[]',
   colors    jsonb not null default '[]',
   specs     jsonb not null default '{}',
@@ -57,6 +66,22 @@ create table if not exists products (
 );
 create index if not exists products_brand_idx on products(brand);
 create index if not exists products_cat_idx   on products(cat);
+
+-- migrations for existing projects:
+alter table products add column if not exists subtitle text;
+alter table products add column if not exists image    text;
+alter table products add column if not exists document text;
+alter table products add column if not exists visible  boolean not null default true;
+alter table products add column if not exists in_ai    boolean not null default true;
+
+-- shared favorite-colour library used by the admin product editor
+create table if not exists color_library (
+  hex        text primary key,
+  name       text,
+  created_at timestamptz not null default now()
+);
+
+-- storage bucket "product-media" (public read, admin write) holds photos + documents.
 
 -- ---- merchandising ----------------------------------------------------
 create table if not exists promotions (

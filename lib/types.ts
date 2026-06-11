@@ -34,12 +34,16 @@ export interface Surface {
 }
 
 export interface ProductSize {
-  /** label, e.g. "10კგ" */
+  /** display label, e.g. "10კგ" (volumes) or "25მმ" (tool sizes) */
   l: string;
   /** price */
   p: number;
   /** stock */
   s: number;
+  /** unit for volume variants (კგ/გრ/ლ/მლ/მგ/ც) — absent for tool sizes */
+  u?: string;
+  /** raw numeric value for volume variants (label = v + u) */
+  v?: string;
 }
 
 export interface ProductColor {
@@ -62,6 +66,8 @@ export interface Product {
   brand: string;
   cat: string;
   name: string;
+  /** short subtitle, e.g. "აბაზანისა & სამზარეულოს ჰიდროიზოლაცია" */
+  subtitle?: string;
   /** auto-generated Latin slug from the (Georgian) name; used in the URL */
   slug?: string;
   desc: string;
@@ -69,6 +75,14 @@ export interface Product {
   usage?: string;
   /** extra info for the AI bot only — never shown on the storefront */
   aiInfo?: string;
+  /** uploaded product photo URL */
+  image?: string;
+  /** uploaded document/PDF URL */
+  document?: string;
+  /** show this product on the website */
+  visible?: boolean;
+  /** include this product in the AI bot knowledge base */
+  inAi?: boolean;
   sizes: ProductSize[];
   colors: ProductColor[];
   specs: ProductSpecs;

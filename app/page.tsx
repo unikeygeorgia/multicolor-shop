@@ -14,8 +14,9 @@ import { ProBand } from "@/components/home/pro-band";
 
 export default function HomePage() {
   const { db, settings } = useStore();
-  const deals = db.products.filter((p) => p.salePct).slice(0, 4);
-  const newArrivals = db.products.filter((p) => hasTag(p, "new")).slice(0, 4);
+  const visible = db.products.filter((p) => p.visible !== false);
+  const deals = visible.filter((p) => p.salePct).slice(0, 4);
+  const newArrivals = visible.filter((p) => hasTag(p, "new")).slice(0, 4);
 
   return (
     <main className="wrap" data-screen-label="მთავარი გვერდი">

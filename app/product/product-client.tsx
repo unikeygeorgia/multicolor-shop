@@ -71,7 +71,7 @@ export function ProductClient() {
           <div className="gallery">
             <div className="main">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img id="g-main" src={ph(GALLERY_SHOTS[shot], b.tint, 900, 900)} alt={`${p.name} — პროდუქტის ფოტო`} />
+              <img id="g-main" src={p.image || ph(GALLERY_SHOTS[shot], b.tint, 900, 900)} alt={`${p.name} — პროდუქტის ფოტო`} />
               <div className="badges">
                 {hasTag(p, "new") && <span className="badge new">ახალი</span>}
                 {p.salePct && !pricesHidden ? <span className="badge sale">−{p.salePct}%</span> : null}
@@ -92,6 +92,7 @@ export function ProductClient() {
               <span className="mark" style={{ background: b.tint }}>{b.name[0]}</span> {b.name} · {b.country}
             </Link>
             <h1>{p.name}</h1>
+            {p.subtitle && <p className="pdp-sub">{p.subtitle}</p>}
             <p className="lead">{p.desc || ""}</p>
 
             {p.sizes.length > 0 && (
@@ -163,6 +164,13 @@ export function ProductClient() {
                 <p style={{ fontSize: "14px", color: "var(--ink-soft)", lineHeight: 1.7, whiteSpace: "pre-line" }}>
                   {p.usage}
                 </p>
+              </div>
+            )}
+
+            {p.document && (
+              <div className="specs">
+                <h3>დოკუმენტი</h3>
+                <a className="doc-link" href={p.document} target="_blank" rel="noreferrer">📄 კატალოგი / დოკუმენტის ჩამოტვირთვა</a>
               </div>
             )}
 

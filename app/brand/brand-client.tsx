@@ -18,7 +18,7 @@ export function BrandClient() {
     [db.brands, params, brandById]
   );
 
-  const prods = useMemo(() => db.products.filter((p) => p.brand === b.id), [db.products, b.id]);
+  const prods = useMemo(() => db.products.filter((p) => p.brand === b.id && p.visible !== false), [db.products, b.id]);
   const cats = useMemo(
     () => [...new Set(prods.map((p) => p.cat))].map((id) => catById(id)).filter(Boolean),
     [prods, catById]

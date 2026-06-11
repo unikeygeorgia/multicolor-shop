@@ -11,7 +11,7 @@ import { ProductCard } from "@/components/product-card";
 export default function SalePage() {
   const { db, brandById, prodById, addBundle, settings, hydrated } = useStore();
   const router = useRouter();
-  const sale = db.products.filter((p) => p.salePct);
+  const sale = db.products.filter((p) => p.salePct && p.visible !== false);
 
   useEffect(() => {
     if (hydrated && settings.pricesHidden) router.replace("/");

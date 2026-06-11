@@ -136,6 +136,7 @@ export function ShopClient() {
   }, [cats, catById]);
 
   const matches = (p: Product) => {
+    if (p.visible === false) return false;
     if (brands.length && !brands.includes(p.brand)) return false;
     if (cats.length && !selectedCatSet.has(p.cat)) return false;
     if (sizes.length && !p.sizes.some((s) => sizes.includes(s.l))) return false;
