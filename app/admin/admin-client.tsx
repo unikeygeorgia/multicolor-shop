@@ -494,7 +494,7 @@ function SettingsView({
         <div>
           <b style={{ fontSize: 14 }}>Unichat AI ბოტი — კატალოგის სინქი</b>
           <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, maxWidth: 460 }}>
-            პროდუქტის შენახვა/წაშლა ავტომატურად ეგზავნება Unichat-ს (თუ ინტეგრაცია ჩართულია). ღილაკი „ყველა გადაგზავნა“ ერთიანად აახლებს ბოტის კატალოგს — replace_all ძველ, ამოღებულ პროდუქტებსაც წაშლის.
+            პროდუქტის ყოველი ცვლილება ბაზიდან ავტომატურად ეგზავნება Unichat-ს (Supabase webhook + ღამის სინქი). ღილაკი „ყველა გადაგზავნა“ ერთიანად აახლებს ბოტის კატალოგს — replace_all ძველ, ამოღებულ პროდუქტებსაც წაშლის.
           </p>
         </div>
         <button className="btn sm" onClick={pushAll} disabled={syncing}>{syncing ? "იგზავნება…" : "ყველა პროდუქტის გადაგზავნა Unichat-ში"}</button>
