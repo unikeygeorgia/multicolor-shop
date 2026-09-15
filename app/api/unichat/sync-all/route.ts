@@ -7,13 +7,16 @@
 
    Two entry points share one implementation:
      POST — the admin "ყველა გადაგზავნა" button (unchanged).
-     GET  — the nightly Vercel cron (see vercel.json). Because it
-            re-sends the COMPLETE catalog, replace_all self-heals
-            any upsert or delete that was missed during the day.
+     GET  — the Supabase DB webhook and the nightly pg_cron job
+            (supabase/unichat_sync_webhook.sql). Because it re-sends
+            the COMPLETE catalog, replace_all self-heals any upsert
+            or delete that was missed.
    ============================================================ */
 
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getAdminClient, isAdminConfigured } from "@/lib/supabase-admin";
 import { rowToProduct, rowToCategory } from "@/lib/mappers";
 import { toUnichatProduct, inBotCatalog } from "@/lib/unichat";
 import type { Brand, Category } from "@/lib/types";
@@ -74,20 +77,43 @@ export async function POST() {
 }
 
 /**
- * Nightly reconcile. Vercel invokes cron paths with GET and, when CRON_SECRET
- * is set on the project, sends `Authorization: Bearer <CRON_SECRET>`.
- * This fails CLOSED: without CRON_SECRET the reconcile is refused, so an
- * arbitrary caller can never trigger an outbound push. Set CRON_SECRET in
- * Vercel before relying on the cron.
+ * Reconcile entry point for the Supabase DB webhook and the nightly pg_cron
+ * job (both send `Authorization: Bearer <secret>` read from Supabase Vault),
+ * and for a Vercel cron if CRON_SECRET is ever set on the project.
+ *
+ * FAILS CLOSED. The bearer is accepted only if it matches CRON_SECRET (when
+ * set) or the Vault secret, checked through a service_role-only RPC so the
+ * secret never leaves the database. With no verifier configured, or on any
+ * error, the request is refused.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("unichat sync-all cron refused: CRON_SECRET is not set on this project");
-    return NextResponse.json({ ok: false, error: "CRON_SECRET is not set" }, { status: 401 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!(await isAuthorizedBearer(bearer))) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   return replaceAll();
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+async function isAuthorizedBearer(bearer: string): Promise<boolean> {
+  if (!bearer) return false;
+  const envSecret = process.env.CRON_SECRET;
+  if (envSecret && constantTimeEqual(bearer, envSecret)) return true;
+  if (!isAdminConfigured) return false;
+  try {
+    const { data, error } = await getAdminClient().rpc("unichat_check_cron_secret", { candidate: bearer });
+    if (error) {
+      console.error("unichat sync-all: vault secret check failed", error.message);
+      return false;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("unichat sync-all: vault secret check threw", e);
+    return false;
+  }
 }

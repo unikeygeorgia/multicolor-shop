@@ -14,8 +14,9 @@
 --  * The site does the payload shaping (lib/unichat.ts); the DB only
 --    triggers it. Posting raw rows to Unichat would send wrong field names.
 --  * The bearer secret is read from Supabase Vault at fire time, so it is
---    never stored in the trigger definition. It MUST equal the CRON_SECRET
---    env var on the Vercel project (the route fails closed without it).
+--    never stored in the trigger definition. The site verifies it against
+--    Vault through unichat_check_cron_secret (service_role only), or against
+--    CRON_SECRET if that env var is set. The route fails closed.
 --  * It can NEVER block a product save: every failure is caught and
 --    downgraded to a WARNING.
 --
@@ -72,3 +73,51 @@ create trigger unichat_sync_on_products_change
   after insert or update or delete on public.products
   for each statement
   execute function public.unichat_sync_after_products_change();
+
+-- ------------------------------------------------------------
+-- Bearer verification for the site. Lets GET /api/unichat/sync-all check an
+-- inbound bearer against the Vault secret without the secret ever leaving the
+-- database. Callable ONLY by service_role, so it is not a public oracle.
+-- ------------------------------------------------------------
+create or replace function public.unichat_check_cron_secret(candidate text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public, extensions
+as $$
+  select coalesce(
+    (select candidate is not null
+            and length(candidate) > 0
+            and encode(extensions.digest(candidate, 'sha256'), 'hex')
+              = encode(extensions.digest(decrypted_secret, 'sha256'), 'hex')
+       from vault.decrypted_secrets
+      where name = 'unichat_cron_secret'
+      limit 1),
+    false);
+$$;
+
+revoke execute on function public.unichat_check_cron_secret(text) from public, anon, authenticated;
+grant execute on function public.unichat_check_cron_secret(text) to service_role;
+
+-- ------------------------------------------------------------
+-- Nightly reconcile (03:00 UTC): push the complete catalog once a day so any
+-- missed upsert or delete self-heals. Runs inside Supabase and sends the Vault
+-- bearer, so it needs no Vercel configuration. cron.schedule upserts by name.
+-- ------------------------------------------------------------
+create extension if not exists pg_cron;
+
+select cron.schedule(
+  'unichat_nightly_replace_all',
+  '0 3 * * *',
+  $job$
+    select net.http_get(
+      url                  := 'https://multicolorge.vercel.app/api/unichat/sync-all',
+      headers              := jsonb_build_object(
+                                'Authorization',
+                                'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'unichat_cron_secret')
+                              ),
+      timeout_milliseconds := 15000
+    );
+  $job$
+);

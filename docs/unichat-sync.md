@@ -31,7 +31,7 @@ never reached the relay. Mode 2 is a latent risk, not what happened.
 
 | Piece | Path | Triggered by | Auth |
 |---|---|---|---|
-| Full push (`replace_all`) | `GET /api/unichat/sync-all` | Vercel cron daily 03:00 UTC **and** the DB webhook | `Authorization: Bearer <CRON_SECRET>` — fails closed |
+| Full push (`replace_all`) | `GET /api/unichat/sync-all` | the DB webhook **and** a nightly `pg_cron` job (03:00 UTC) | bearer verified against Vault (service_role RPC) or `CRON_SECRET` — fails closed |
 | Same, admin button | `POST /api/unichat/sync-all` | "ყველა გადაგზავნა" in admin settings | none (unchanged) |
 | Supabase keep-alive | `GET /api/keepalive` | Vercel cron daily 04:00 UTC | none, deliberately |
 | DB webhook | `supabase/unichat_sync_webhook.sql` | any INSERT/UPDATE/DELETE on `products` (statement-level) | reads Vault `unichat_cron_secret` |
@@ -47,18 +47,22 @@ deployment, so this code must be deployed to production for them to start.
 |---|---|
 | `UNICHAT_CATALOG_URL` | `https://app.unichat.ge/api/catalog` — already set (verified 2026-09-15) |
 | `UNICHAT_CATALOG_API_KEY` | already set (verified 2026-09-15); source of truth is Unichat `tenants.catalog_api_key` |
-| `CRON_SECRET` | random; **must equal** Vault `unichat_cron_secret` |
+| `SUPABASE_SERVICE_ROLE_KEY` | already set (orders API); lets the route verify the bearer against Vault |
+| `CRON_SECRET` | optional env alternative to the Vault check; if set, **must equal** Vault `unichat_cron_secret` |
 | `NEXT_PUBLIC_SUPABASE_URL` / `_ANON_KEY` | already set |
 
 ## Install / rotate the webhook secret
 
-Install (one time — Supabase SQL editor or a migration):
-1. `select vault.create_secret('<CRON_SECRET>', 'unichat_cron_secret');`
-2. Run `supabase/unichat_sync_webhook.sql`.
+Already installed on the project (2026-09-15): the Vault secret
+`unichat_cron_secret`, the trigger, the `unichat_check_cron_secret` RPC and the
+nightly `pg_cron` job. Fresh install elsewhere:
+1. `select vault.create_secret('<random>', 'unichat_cron_secret');`
+2. Run `supabase/unichat_sync_webhook.sql` (trigger, RPC, cron job).
 
-Rotate `CRON_SECRET` — do both, in this order, close together:
-1. Vercel → Production env → set the new value → redeploy.
-2. `select vault.update_secret(id, '<new>') from vault.secrets where name = 'unichat_cron_secret';`
+Rotate the secret:
+`select vault.update_secret(id, '<new>') from vault.secrets where name = 'unichat_cron_secret';`
+— the webhook, the pg_cron job and the route all read Vault, so nothing else
+changes. If `CRON_SECRET` is also set on Vercel, update it to the same value.
 
 Change the target URL: edit `url` in `supabase/unichat_sync_webhook.sql` and
 re-run it. The `.vercel.app` production alias is used on purpose — it keeps
@@ -76,6 +80,8 @@ working even while `multicolor.ge` DNS is broken.
 5. Test a removal (set `in_ai = false`, or delete) — the row disappears from Unichat.
 6. DB side: `select status_code, created from net._http_response order by id desc limit 5;`
    lists each trigger call with its HTTP status (200 once production is deployed).
+7. Nightly job: `select jobname, schedule, active from cron.job;` and
+   `select status, start_time from cron.job_run_details order by start_time desc limit 3;`
 
 ## Pitfalls
 
