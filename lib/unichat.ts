@@ -1,9 +1,12 @@
 /* ============================================================
-   Unichat (app.unichat.ge) catalog sync — SENDER side only.
-   Builds the Unichat product payload from our domain model and
-   fires it to the server relay route. Everything is env-gated on
-   the server: if UNICHAT_CATALOG_URL / _API_KEY are empty the
-   relay is a no-op, so product saves never block or break.
+   Unichat (app.unichat.ge) catalog sync — payload shaping only.
+   Builds the Unichat product payload from our domain model.
+   Sending is done server-side by /api/unichat/sync-all
+   (replace_all), which the Supabase database webhook and the
+   nightly cron invoke — so every product change reaches Unichat
+   regardless of which code path made it. Env-gated on the
+   server: if UNICHAT_CATALOG_URL / _API_KEY are empty it is a
+   no-op, so product saves never block or break.
    ============================================================ */
 
 import type { Brand, Category, Product } from "./types";
@@ -71,23 +74,4 @@ export function toUnichatProduct(p: Product, brands: Brand[], cats: Category[]):
     ai_comment: ai_comment || undefined,
     updated_at: new Date().toISOString(),
   };
-}
-
-/** Fire-and-forget POST to our relay route. Never throws, never awaited by callers. */
-export function sendToUnichat(payload: unknown): void {
-  if (typeof fetch === "undefined") return;
-  try {
-    fetch("/api/unichat/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    }).catch(() => { /* relay is best-effort */ });
-  } catch { /* ignore */ }
-}
-
-/** Convenience: sync a single product (upsert when in-catalog, otherwise delete). */
-export function syncProductToUnichat(p: Product, brands: Brand[], cats: Category[]): void {
-  if (inBotCatalog(p)) sendToUnichat({ action: "upsert", product: toUnichatProduct(p, brands, cats) });
-  else sendToUnichat({ action: "delete", external_id: p.id });
 }
