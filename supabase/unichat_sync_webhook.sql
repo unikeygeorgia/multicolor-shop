@@ -28,7 +28,7 @@
 -- even while the multicolor.ge DNS / Cloudways mapping is broken.
 -- ============================================================
 
-create extension if not exists pg_net;
+create extension if not exists pg_net with schema extensions;
 
 create or replace function public.unichat_sync_after_products_change()
 returns trigger
@@ -61,6 +61,11 @@ exception when others then
   return null;
 end;
 $$;
+
+-- Keep the function out of the PostgREST RPC surface. Postgres checks EXECUTE
+-- on trigger functions when the trigger is created, not when it fires, so this
+-- cannot block a product save.
+revoke execute on function public.unichat_sync_after_products_change() from public, anon, authenticated;
 
 drop trigger if exists unichat_sync_on_products_change on public.products;
 create trigger unichat_sync_on_products_change
