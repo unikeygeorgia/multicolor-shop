@@ -6,7 +6,15 @@ Unichat pulls; this site **pushes** via `POST https://app.unichat.ge/api/catalog
 (`Authorization: Bearer <catalog_api_key>`). When the push stops, the bot goes
 stale silently — which is what happened for 16 days in September 2026.
 
-## Failure modes that caused the outage
+## What actually failed (confirmed 2026-09-15)
+
+A manual `POST /api/unichat/sync-all` on production, made from outside any
+browser, succeeded immediately (`sent: 19, upserted: 19`). That proved the
+server relay and the `UNICHAT_*` env vars were fine all along, and it restored
+the catalog on the spot. The failure was mode 1 below: the browser-side push
+never reached the relay. Mode 2 is a latent risk, not what happened.
+
+### Failure modes
 
 1. The only push was **browser-side, fire-and-forget** on admin save
    (`components/store-provider.tsx` → `fetch("/api/unichat/sync")`, errors
@@ -37,8 +45,8 @@ deployment, so this code must be deployed to production for them to start.
 
 | Var | Value |
 |---|---|
-| `UNICHAT_CATALOG_URL` | `https://app.unichat.ge/api/catalog` |
-| `UNICHAT_CATALOG_API_KEY` | from Unichat: `select catalog_api_key from tenants where id = 'e16488c5-cd19-44cd-9105-1e8097141ff5'` |
+| `UNICHAT_CATALOG_URL` | `https://app.unichat.ge/api/catalog` — already set (verified 2026-09-15) |
+| `UNICHAT_CATALOG_API_KEY` | already set (verified 2026-09-15); source of truth is Unichat `tenants.catalog_api_key` |
 | `CRON_SECRET` | random; **must equal** Vault `unichat_cron_secret` |
 | `NEXT_PUBLIC_SUPABASE_URL` / `_ANON_KEY` | already set |
 
@@ -66,6 +74,8 @@ working even while `multicolor.ge` DNS is broken.
 3. Multicolor's Vercel runtime logs show `unichat replace_all ok { sent, upserted, deleted }`.
 4. Unichat's Vercel logs show `POST /api/catalog 200`.
 5. Test a removal (set `in_ai = false`, or delete) — the row disappears from Unichat.
+6. DB side: `select status_code, created from net._http_response order by id desc limit 5;`
+   lists each trigger call with its HTTP status (200 once production is deployed).
 
 ## Pitfalls
 
