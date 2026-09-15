@@ -28,7 +28,7 @@
 -- even while the multicolor.ge DNS / Cloudways mapping is broken.
 -- ============================================================
 
-create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_net;
 
 create or replace function public.unichat_sync_after_products_change()
 returns trigger
