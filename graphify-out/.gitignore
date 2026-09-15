@@ -1,0 +1,6 @@
+# graphify internal state — machine-specific or regenerable, not for version control
+.graphify_python
+.graphify_root
+.graphify_labels.json
+.needs_update
+cache/

@@ -4,10 +4,19 @@
    shapes the Unichat payload, and POSTs one request with the
    secret Bearer key (never exposed to the client). No-op when
    UNICHAT_CATALOG_URL / _API_KEY are empty.
+
+   Two entry points share one implementation:
+     POST — the admin "ყველა გადაგზავნა" button (unchanged).
+     GET  — the Supabase DB webhook and the nightly pg_cron job
+            (supabase/unichat_sync_webhook.sql). Because it re-sends
+            the COMPLETE catalog, replace_all self-heals any upsert
+            or delete that was missed.
    ============================================================ */
 
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getAdminClient, isAdminConfigured } from "@/lib/supabase-admin";
 import { rowToProduct, rowToCategory } from "@/lib/mappers";
 import { toUnichatProduct, inBotCatalog } from "@/lib/unichat";
 import type { Brand, Category } from "@/lib/types";
@@ -15,7 +24,8 @@ import type { Brand, Category } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+/** Gather the in-catalog products from the DB and push them as one replace_all. */
+async function replaceAll() {
   const url = process.env.UNICHAT_CATALOG_URL;
   const key = process.env.UNICHAT_CATALOG_API_KEY;
   if (!url || !key) return NextResponse.json({ ok: true, skipped: true, sent: 0 });
@@ -46,15 +56,64 @@ export async function POST() {
     });
     let resp: { upserted?: number; deleted?: number } = {};
     try { resp = await r.json(); } catch { /* Unichat may return an empty body */ }
-    if (!r.ok) return NextResponse.json({ ok: false, status: r.status, sent: list.length }, { status: 200 });
-    return NextResponse.json({
-      ok: true,
-      sent: list.length,
-      upserted: resp.upserted ?? list.length,
-      deleted: resp.deleted ?? 0,
-    });
+    if (!r.ok) {
+      console.error("unichat replace_all failed (HTTP)", r.status, { sent: list.length });
+      return NextResponse.json({ ok: false, status: r.status, sent: list.length }, { status: 200 });
+    }
+    const upserted = resp.upserted ?? list.length;
+    const deleted = resp.deleted ?? 0;
+    // one line per run so catalog freshness is visible in Vercel runtime logs
+    console.log("unichat replace_all ok", { sent: list.length, upserted, deleted });
+    return NextResponse.json({ ok: true, sent: list.length, upserted, deleted });
   } catch (e) {
     console.error("unichat sync-all failed", e);
     return NextResponse.json({ ok: false, sent: list.length, error: "network" }, { status: 200 });
+  }
+}
+
+/** Admin "ყველა გადაგზავნა" button. */
+export async function POST() {
+  return replaceAll();
+}
+
+/**
+ * Reconcile entry point for the Supabase DB webhook and the nightly pg_cron
+ * job (both send `Authorization: Bearer <secret>` read from Supabase Vault),
+ * and for a Vercel cron if CRON_SECRET is ever set on the project.
+ *
+ * FAILS CLOSED. The bearer is accepted only if it matches CRON_SECRET (when
+ * set) or the Vault secret, checked through a service_role-only RPC so the
+ * secret never leaves the database. With no verifier configured, or on any
+ * error, the request is refused.
+ */
+export async function GET(req: Request) {
+  const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!(await isAuthorizedBearer(bearer))) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  return replaceAll();
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+async function isAuthorizedBearer(bearer: string): Promise<boolean> {
+  if (!bearer) return false;
+  const envSecret = process.env.CRON_SECRET;
+  if (envSecret && constantTimeEqual(bearer, envSecret)) return true;
+  if (!isAdminConfigured) return false;
+  try {
+    const { data, error } = await getAdminClient().rpc("unichat_check_cron_secret", { candidate: bearer });
+    if (error) {
+      console.error("unichat sync-all: vault secret check failed", error.message);
+      return false;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("unichat sync-all: vault secret check threw", e);
+    return false;
   }
 }
