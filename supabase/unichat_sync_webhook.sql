@@ -1,7 +1,8 @@
 -- ============================================================
 -- Unichat catalog sync — database webhook (sender side).
 --
--- After ANY insert/update/delete on public.products, ask the site to
+-- After ANY insert/update/delete on public.products, brands or categories,
+-- ask the site to
 -- push the COMPLETE catalog to Unichat (replace_all) by calling
 --   GET https://multicolorge.vercel.app/api/unichat/sync-all
 -- with  Authorization: Bearer <CRON_SECRET>.
@@ -71,6 +72,20 @@ revoke execute on function public.unichat_sync_after_products_change() from publ
 drop trigger if exists unichat_sync_on_products_change on public.products;
 create trigger unichat_sync_on_products_change
   after insert or update or delete on public.products
+  for each statement
+  execute function public.unichat_sync_after_products_change();
+
+-- Brand and category names are embedded in every product payload
+-- (attributes.ბრენდი / attributes.კატეგორია), so a rename must push too.
+drop trigger if exists unichat_sync_on_brands_change on public.brands;
+create trigger unichat_sync_on_brands_change
+  after insert or update or delete on public.brands
+  for each statement
+  execute function public.unichat_sync_after_products_change();
+
+drop trigger if exists unichat_sync_on_categories_change on public.categories;
+create trigger unichat_sync_on_categories_change
+  after insert or update or delete on public.categories
   for each statement
   execute function public.unichat_sync_after_products_change();
 

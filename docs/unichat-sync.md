@@ -34,7 +34,7 @@ never reached the relay. Mode 2 is a latent risk, not what happened.
 | Full push (`replace_all`) | `GET /api/unichat/sync-all` | the DB webhook **and** a nightly `pg_cron` job (03:00 UTC) | bearer verified against Vault (service_role RPC) or `CRON_SECRET` — fails closed |
 | Same, admin button | `POST /api/unichat/sync-all` | "ყველა გადაგზავნა" in admin settings | none (unchanged) |
 | Supabase keep-alive | `GET /api/keepalive` | Vercel cron daily 04:00 UTC | none, deliberately |
-| DB webhook | `supabase/unichat_sync_webhook.sql` | any INSERT/UPDATE/DELETE on `products` (statement-level) | reads Vault `unichat_cron_secret` |
+| DB webhook | `supabase/unichat_sync_webhook.sql` | any INSERT/UPDATE/DELETE on `products`, `brands` or `categories` (statement-level) | reads Vault `unichat_cron_secret` |
 
 `replace_all` always sends the **complete** in-catalog set, so every run
 self-heals missed upserts *and* missed deletes. With ~19 products it is cheap
@@ -91,8 +91,7 @@ working even while `multicolor.ge` DNS is broken.
   the embedding on upsert; a direct SQL edit leaves a stale vector.
 - Do not run the old browser-side push and the webhook at the same time.
 
-## The held branch
+## History
 
-`claude/graphify-hszjef-remove-save-hook` removes the old browser-side push.
-Merge it **only after** "Verify end to end" passes, so exactly one mechanism
-fires per change.
+The old browser-side push was removed in #2 (2026-09-15) after the webhook
+was verified live; the database trigger is now the single mechanism.
